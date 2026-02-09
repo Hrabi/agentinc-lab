@@ -507,7 +507,218 @@ quadrantChart
 
 ---
 
-## Slide 15: What's Next?
+## Slide 15: Quantization — Trading Precision for Speed & Size
+
+> How to fit a 16 GB model into 5 GB of VRAM — and what you lose doing it.
+
+### What Is Quantization?
+
+Neural networks store weights as floating-point numbers. **Quantization** reduces the number of bits per weight, shrinking the model and accelerating inference — at the cost of some accuracy.
+
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                     QUANTIZATION AT A GLANCE                             │
+│                                                                          │
+│  Original (FP16):   each weight = 16 bits   →  baseline quality          │
+│  Quantized (Q4):    each weight ≈  4 bits   →  ~75% smaller, ~2× faster │
+│                                                                          │
+│  Think of it like JPEG compression for images:                           │
+│  the file shrinks dramatically, but some fine detail is lost.            │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Precision Formats — From Full to Aggressive
+
+| Format | Bits/Weight | Size (8B model) | Relative Quality | Use Case |
+|--------|:-----------:|:----------------:|:----------------:|----------|
+| **FP32** (float32) | 32 | ~32 GB | 100% (training) | Training only |
+| **FP16** (float16) | 16 | ~16 GB | ~100% (baseline) | GPU inference baseline |
+| **BF16** (bfloat16) | 16 | ~16 GB | ~100% | Training + inference |
+| **Q8_0** | 8 | ~8 GB | ~99.5% | Maximum quality quant |
+| **Q6_K** | 6.6 | ~6.6 GB | ~99% | High quality, slightly smaller |
+| **Q5_K_M** | 5.5 | ~5.5 GB | ~98.5% | Quality-conscious users |
+| **Q4_K_M** | 4.8 | ~4.8 GB | ~97–98% | ⭐ Best balance (default) |
+| **Q4_K_S** | 4.5 | ~4.5 GB | ~96–97% | Slightly smaller, minor loss |
+| **Q3_K_M** | 3.9 | ~3.9 GB | ~93–95% | VRAM-constrained |
+| **Q3_K_S** | 3.5 | ~3.5 GB | ~91–93% | Aggressive compression |
+| **Q2_K** | 2.6 | ~2.6 GB | ~85–88% | Last resort, noticeable loss |
+| **IQ2_XXS** | 2.1 | ~2.1 GB | ~80–85% | Extreme compression |
+
+> ⭐ **Q4_K_M** is the community default because it offers ~97–98% of original quality at ~30% of original size.
+
+### K-Quant — Mixed Precision by Tensor Importance
+
+K-Quant (developed by llama.cpp) assigns **different bit depths to different tensors** based on their importance — attention layers and embeddings get 5–6 bits, while FFN layers get 4 bits. This is why Q4_K_M outperforms uniform Q4_0 at the same average bit depth.
+
+> 📖 **Deep dive:** [K-Quant Mixed Precision](../notes/k-quant-mixed-precision.md) — full breakdown of tensor allocation, block quantization internals, super-blocks, S/M/L variants, and practical implications for AgenticLab.
+
+### The Naming Convention Explained
+
+```text
+  Q 4 _ K _ M
+  │ │   │   └── Size variant: S = Small, M = Medium, L = Large
+  │ │   └────── Method: K = K-Quant (mixed precision), 0/1 = legacy uniform
+  │ └────────── Target bits per weight (approximate average)
+  └──────────── "Quantized"
+```
+
+| Suffix | Meaning | What changes |
+|--------|---------|-------------|
+| **S** (Small) | Fewer important tensors get high precision | Smaller file, more quality loss |
+| **M** (Medium) | Balanced tensor selection | ⭐ Best tradeoff |
+| **L** (Large) | More tensors get high precision | Larger file, less quality loss |
+
+### Measuring Quality Loss — Perplexity (PPL)
+
+**Perplexity** is the standard metric for measuring how well a language model predicts text. Lower perplexity = better model. It measures how "surprised" the model is by test text.
+
+$$
+PPL = \exp\!\left( -\frac{1}{N} \sum_{i=1}^{N} \log P(\text{token}_i \mid \text{context}_i) \right)
+$$
+
+Where:
+- $N$ = total number of tokens in the evaluation set
+- $P(\text{token}_i \mid \text{context}_i)$ = probability the model assigns to the correct token given its context
+- $\log$ = natural logarithm
+
+**Intuition:** If the model assigns high probability to each correct next word, the sum is large (less negative), and exponentiation produces a small number (low perplexity). If the model is often surprised (assigns low probability to the correct word), perplexity is high.
+
+### Quality Loss Calculation
+
+$$
+\text{Quality loss (\%)} = \frac{PPL_{\text{quant}} - PPL_{\text{fp16}}}{PPL_{\text{fp16}}} \times 100
+$$
+
+### Concrete Example — Llama 3.2 8B Perplexity by Quantization
+
+> Evaluated on the WikiText-2 benchmark (typical llama.cpp perplexity test).
+
+| Quantization | Bits/Weight | File Size | PPL (wiki2) | Quality Loss | Verdict |
+|:-------------|:----------:|----------:|:-----------:|:------------:|:--------|
+| **FP16** | 16.0 | ~16.0 GB | ~6.00 | — (baseline) | Perfect, but huge |
+| **Q8_0** | 8.0 | ~8.0 GB | ~6.01 | **+0.2%** | Virtually lossless |
+| **Q6_K** | 6.6 | ~6.6 GB | ~6.03 | **+0.5%** | Imperceptible |
+| **Q5_K_M** | 5.5 | ~5.5 GB | ~6.06 | **+1.0%** | Excellent |
+| **Q4_K_M** | 4.8 | ~4.8 GB | ~6.12 | **+2.0%** | ⭐ Sweet spot |
+| **Q4_K_S** | 4.5 | ~4.5 GB | ~6.18 | **+3.0%** | Good |
+| **Q3_K_M** | 3.9 | ~3.9 GB | ~6.40 | **+6.7%** | Noticeable on complex tasks |
+| **Q3_K_S** | 3.5 | ~3.5 GB | ~6.60 | **+10.0%** | Visible degradation |
+| **Q2_K** | 2.6 | ~2.6 GB | ~7.50 | **+25.0%** | Significant quality loss |
+
+```text
+┌───────────────────────────────────────────────────────────────────────────┐
+│              QUALITY vs SIZE — Llama 3.2 8B                             │
+│                                                                         │
+│  Quality  ████████████████████████████████████████████ 100%   FP16     │
+│  (PPL)    ███████████████████████████████████████████▌  99.8%  Q8_0    │
+│           ███████████████████████████████████████████   99.5%  Q6_K    │
+│           ██████████████████████████████████████████    99.0%  Q5_K_M  │
+│           █████████████████████████████████████████     98.0%  Q4_K_M ⭐│
+│           ████████████████████████████████████████      97.0%  Q4_K_S  │
+│           █████████████████████████████████████         93.3%  Q3_K_M  │
+│           ███████████████████████████████████           90.0%  Q3_K_S  │
+│           ████████████████████████████████              75.0%  Q2_K    │
+│                                                                         │
+│  Size     ████████████████████████████████  16.0 GB   FP16             │
+│           ████████████████                   8.0 GB   Q8_0             │
+│           █████████████                      6.6 GB   Q6_K             │
+│           ███████████                        5.5 GB   Q5_K_M           │
+│           ██████████                         4.8 GB   Q4_K_M ⭐        │
+│           █████████                          4.5 GB   Q4_K_S           │
+│           ████████                           3.9 GB   Q3_K_M           │
+│           ███████                            3.5 GB   Q3_K_S           │
+│           █████                              2.6 GB   Q2_K             │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### VRAM Estimation Formula
+
+$$
+\text{VRAM}_{\text{min}} \approx \frac{P \times B}{8} + \text{overhead}
+$$
+
+Where:
+- $P$ = number of parameters (e.g., 8 billion)
+- $B$ = bits per weight (e.g., 4.8 for Q4_K_M)
+- Overhead ≈ 500 MB – 1 GB (KV cache, activations, runtime)
+
+**Worked example — Llama 3.2 8B Q4_K_M:**
+
+$$
+\text{VRAM} = \frac{8 \times 10^9 \times 4.8}{8} + 0.5\text{ GB} = 4.8\text{ GB} + 0.5\text{ GB} = \textbf{5.3 GB}
+$$
+
+→ Fits easily on the RTX 5090 (24 GB), leaving ~19 GB for other models or larger batch sizes.
+
+### Scaling to Larger Models — VRAM Budget on RTX 5090 (24 GB)
+
+| Model (params) | FP16 | Q8_0 | Q4_K_M | Fits GPU? (Q4_K_M) |
+|:---------------|-----:|-----:|-------:|:-------------------:|
+| 3B | 6.0 GB | 3.0 GB | 1.8 GB | ✅ Trivially |
+| 8B | 16.0 GB | 8.0 GB | 4.8 GB | ✅ Full GPU |
+| 14B | 28.0 GB | 14.0 GB | 8.4 GB | ✅ Full GPU |
+| 27B | 54.0 GB | 27.0 GB | 16.2 GB | ✅ Full GPU |
+| 32B | 64.0 GB | 32.0 GB | 19.2 GB | ✅ Tight fit |
+| 70B | 140.0 GB | 70.0 GB | 42.0 GB | ⚠️ Needs 18 GB RAM offload |
+| 120B | 240.0 GB | 120.0 GB | 72.0 GB | ⚠️ Needs 48 GB RAM offload |
+
+> With 192 GB DDR5 RAM, your machine can offload layers to system RAM for models up to ~120B.
+> GPU layers run at full speed; RAM-offloaded layers are ~5–10× slower.
+
+### Where Quality Loss Actually Matters
+
+Not all tasks are equally affected by quantization:
+
+| Task | Sensitivity | Impact of Q4_K_M | Notes |
+|------|:----------:|:-----------------:|-------|
+| Casual conversation | Low | Undetectable | Redundant patterns survive well |
+| Summarization | Low | Minimal | Core meaning preserved |
+| Classification | Low | ~0% accuracy loss | Binary/categorical robust to noise |
+| Code generation | Medium | Minor syntax issues rare | Logic preserved, edge cases may slip |
+| Math / reasoning | Medium-High | 1–3% accuracy drop | Chain-of-thought can diverge |
+| Creative writing | Medium | Slightly less varied vocabulary | Fine details flatten |
+| Rare languages | High | Noticeable degradation | Underrepresented tokens most affected |
+| Precise factual recall | High | More hallucination risk | Exact numbers/dates may drift |
+
+> **Rule of thumb:** If a task relies on **common patterns** (conversation, classification, summarization), quantization barely matters. If it relies on **rare knowledge** or **precise reasoning**, you'll notice the difference.
+
+### Running Custom Quantizations in Ollama
+
+```bash
+# Ollama downloads pre-quantized models by default (usually Q4_K_M)
+ollama pull llama3.2        # Default quantization
+
+# Pull a specific quantization tag (not all models offer all quants)
+ollama pull llama3.2:8b-instruct-q8_0      # Higher quality
+ollama pull llama3.2:8b-instruct-q3_K_M    # Smaller / faster
+
+# Import a GGUF with custom quantization
+ollama create my-model -f Modelfile
+# Modelfile:
+#   FROM ./llama-3.2-8b-Q5_K_M.gguf
+```
+
+### Quantization Decision Tree
+
+```mermaid
+flowchart TD
+    Start([Choose Quantization]) --> VRAM{Available VRAM?}
+    VRAM -->|"Plenty (model < 50% VRAM)"| Q8["Use Q8_0\n~99.5% quality"]
+    VRAM -->|"Comfortable (model < 75% VRAM)"| Q5["Use Q5_K_M\n~98.5% quality"]
+    VRAM -->|"Tight (model ~90% VRAM)"| Q4["Use Q4_K_M ⭐\n~98% quality"]
+    VRAM -->|"Very tight (model > VRAM)"| Offload{RAM offload OK?}
+    Offload -->|Yes| Q4_off["Use Q4_K_M + offload\n~98% quality, slower"]
+    Offload -->|No| Q3["Use Q3_K_M\n~93% quality"]
+    Q3 --> Acceptable{Quality acceptable?}
+    Acceptable -->|Yes| Done([✅ Deploy])
+    Acceptable -->|No| Smaller["Try a smaller model\nat higher quant"]
+```
+
+> **Best practice:** It's almost always better to use a **smaller model at higher quantization** (e.g., 8B Q8_0) than a **larger model at aggressive quantization** (e.g., 14B Q2_K). The quality floor of aggressive quants drops faster than the quality gain from more parameters.
+
+---
+
+## Slide 16: What's Next?
 
 ```mermaid
 gantt
@@ -541,7 +752,7 @@ gantt
 
 ---
 
-## Slide 16: Key Takeaways
+## Slide 17: Key Takeaways
 
 1. **Local-first** — cloud is optional, not required
 2. **Composable** — small, focused, replaceable agents
