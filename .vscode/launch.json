@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "AgenticLab Demo",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/src/AgenticLab.Demos/bin/Debug/net10.0/AgenticLab.Demos.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/AgenticLab.Demos",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "DOTNET_ENVIRONMENT": "Development"
+            }
+        },
+        {
+            "name": "AgenticLab Demo (no build)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/AgenticLab.Demos/bin/Debug/net10.0/AgenticLab.Demos.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/AgenticLab.Demos",
+            "console": "integratedTerminal",
+            "stopAtEntry": false,
+            "env": {
+                "DOTNET_ENVIRONMENT": "Development"
+            }
+        }
+    ]
+}

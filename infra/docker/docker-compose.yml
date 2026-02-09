@@ -1,0 +1,112 @@
+## ---------------------------------------------------------------------------
+## AgenticLab — Local LLM Infrastructure
+## ---------------------------------------------------------------------------
+## Dev machine: Intel Core Ultra 9 275HX · 192 GB DDR5 · RTX 5090 24 GB · Win 11
+##
+## Usage:
+##   docker compose up -d                      # Start Ollama (default)
+##   docker compose --profile vllm up -d       # Start Ollama + vLLM
+##   docker compose --profile all up -d        # Start everything
+##   docker compose up -d ollama-init          # Pull default models into Ollama
+## ---------------------------------------------------------------------------
+
+services:
+  # ── Ollama ── Quick dev iteration, pull-and-run ─────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: agenticlab-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    environment:
+      - OLLAMA_NUM_PARALLEL=4          # concurrent requests
+      - OLLAMA_MAX_LOADED_MODELS=2     # keep 2 models hot in VRAM
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Ollama model bootstrap ── pulls default models on first run ─────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: agenticlab-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Pulling default models..."
+        ollama pull qwen2.5:14b
+        ollama pull llama3.2
+        ollama pull nomic-embed-text
+        echo "Done."
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+
+  # ── vLLM ── Production-grade OpenAI-compatible serving ──────────────────────
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: agenticlab-vllm
+    profiles: ["vllm", "all"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - huggingface-cache:/root/.cache/huggingface
+    environment:
+      - HF_TOKEN=${HF_TOKEN:-}    # set in .env if needed for gated models
+    command: >
+      --model Qwen/Qwen2.5-14B-Instruct
+      --max-model-len 8192
+      --gpu-memory-utilization 0.85
+      --dtype auto
+      --api-key ${VLLM_API_KEY:-agenticlab-dev}
+      --served-model-name qwen2.5-14b
+      --trust-remote-code
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s    # vLLM takes time to load models
+
+  # ── Open WebUI ── Chat interface for testing models ─────────────────────────
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: agenticlab-webui
+    profiles: ["webui", "all"]
+    ports:
+      - "3000:8080"
+    volumes:
+      - webui-data:/app/backend/data
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OPENAI_API_BASE_URL=http://vllm:8000/v1
+      - OPENAI_API_KEY=${VLLM_API_KEY:-agenticlab-dev}
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+volumes:
+  ollama-data:
+  huggingface-cache:
+  webui-data:

@@ -1,0 +1,24 @@
+graph TB
+    subgraph Local[Developer Machine]
+        Runtime[AgenticLab.Runtime]
+        Agent[Agent]
+        ModelRouter[Model Router]
+        LocalLLM[Ollama - Local LLM]
+        LocalTools[Local Tools]
+    end
+    
+    subgraph Cloud[Azure Cloud]
+        AzureOpenAI[Azure OpenAI - GPT-4o]
+        AISearch[Azure AI Search]
+        BlobStorage[Azure Blob Storage]
+        KeyVault[Azure Key Vault]
+    end
+    
+    Runtime --> Agent
+    Agent --> ModelRouter
+    ModelRouter -->|Simple Tasks| LocalLLM
+    ModelRouter -->|Complex Tasks| AzureOpenAI
+    Agent --> LocalTools
+    Agent --> AISearch
+    Agent --> BlobStorage
+    Runtime --> KeyVault

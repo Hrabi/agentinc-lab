@@ -1,0 +1,35 @@
+graph TB
+    subgraph Developer Machine
+        Runtime[AgenticLab.Runtime]
+        AgentA[Agent A - Planner]
+        AgentB[Agent B - Executor]
+        Router[Message Router]
+        
+        subgraph Models
+            Ollama[Ollama - Local LLM]
+            ONNX[ONNX Runtime]
+        end
+        
+        subgraph Tools
+            FS[File System]
+            Search[Local Search]
+            Code[Code Execution]
+        end
+        
+        subgraph Storage
+            SQLite[SQLite]
+            Files[Local Files]
+        end
+    end
+    
+    Runtime --> AgentA
+    Runtime --> AgentB
+    AgentA --> Router
+    AgentB --> Router
+    Router --> Ollama
+    Router --> ONNX
+    AgentA --> FS
+    AgentA --> Search
+    AgentB --> Code
+    AgentB --> SQLite
+    AgentB --> Files

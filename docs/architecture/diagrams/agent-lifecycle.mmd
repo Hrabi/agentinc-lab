@@ -1,0 +1,11 @@
+graph TD
+    A[Initialize Agent] --> B[Receive Task]
+    B --> C{Plan}
+    C --> D[Select Tools]
+    D --> E[Execute Actions]
+    E --> F{Evaluate Results}
+    F -->|Success| G[Report Output]
+    F -->|Retry| C
+    F -->|Escalate| H[Delegate to Another Agent]
+    H --> B
+    G --> I[Complete]
