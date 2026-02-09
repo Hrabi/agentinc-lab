@@ -5,70 +5,71 @@
 <h1>Dashboard</h1>
 <p>Welcome to AgenticLab — your local-first agentic AI workbench.</p>
 
-<FluentStack Orientation="Orientation.Horizontal" Wrap="true" Style="gap: 16px; margin-top: 24px;">
-    <FluentCard Style="min-width: 200px;" Class="stat-card">
+@* Status cards — compact row *@
+<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 24px;">
+    <FluentCard Class="stat-card">
         <h3>Ollama Status</h3>
         <div>
             @if (_ollamaChecking)
             {
-                <FluentProgressRing />
+                <FluentProgressRing Style="width: 24px; height: 24px;" />
             }
             else
             {
                 <span class="status-dot @(_ollamaOnline ? "online" : "offline")"></span>
-                <span>@( _ollamaOnline ? "Online" : "Offline" )</span>
+                <span>@(_ollamaOnline ? "Online" : "Offline")</span>
             }
         </div>
     </FluentCard>
 
-    <FluentCard Style="min-width: 200px;" Class="stat-card">
+    <FluentCard Class="stat-card">
         <h3>Available Models</h3>
         <div class="stat-value">@_availableModels</div>
     </FluentCard>
 
-    <FluentCard Style="min-width: 200px;" Class="stat-card">
+    <FluentCard Class="stat-card">
         <h3>Model Configs</h3>
         <div class="stat-value">@_modelConfigs</div>
     </FluentCard>
 
-    <FluentCard Style="min-width: 200px;" Class="stat-card">
+    <FluentCard Class="stat-card">
         <h3>Agent Configs</h3>
         <div class="stat-value">@_agentConfigs</div>
     </FluentCard>
 
-    <FluentCard Style="min-width: 200px;" Class="stat-card">
+    <FluentCard Class="stat-card">
         <h3>Demo Examples</h3>
         <div class="stat-value">@_exampleCount</div>
     </FluentCard>
-</FluentStack>
+</div>
 
 <h2 style="margin-top: 32px;">Quick Start</h2>
 
-<FluentStack Orientation="Orientation.Horizontal" Wrap="true" Style="gap: 16px;">
-    <FluentCard Style="min-width: 280px; max-width: 350px;">
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+    <FluentCard>
         <h3>1. Configure Models</h3>
         <p>Set up Ollama model configurations with custom parameters like temperature and max tokens.</p>
         <FluentAnchor Href="/models" Appearance="Appearance.Accent">Go to Models &rarr;</FluentAnchor>
     </FluentCard>
 
-    <FluentCard Style="min-width: 280px; max-width: 350px;">
+    <FluentCard>
         <h3>2. Create Agents</h3>
         <p>Create agent instances with a specific model and behavior configuration.</p>
         <FluentAnchor Href="/agents" Appearance="Appearance.Accent">Go to Agents &rarr;</FluentAnchor>
     </FluentCard>
 
-    <FluentCard Style="min-width: 280px; max-width: 350px;">
+    <FluentCard>
         <h3>3. Test in Playground</h3>
         <p>Chat with your agents, run demo examples, and compare responses side-by-side.</p>
         <FluentAnchor Href="/playground" Appearance="Appearance.Accent">Go to Playground &rarr;</FluentAnchor>
     </FluentCard>
 
-    <FluentCard Style="min-width: 280px; max-width: 350px;">
+    <FluentCard>
         <h3>4. Compare Results</h3>
         <p>Run the same prompt against multiple agents and compare performance, quality, and speed.</p>
         <FluentAnchor Href="/compare" Appearance="Appearance.Accent">Go to Compare &rarr;</FluentAnchor>
     </FluentCard>
-</FluentStack>
+</div>
 
 @if (_ollamaModels.Count > 0)
 {

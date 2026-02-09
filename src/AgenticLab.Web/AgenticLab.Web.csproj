@@ -12,7 +12,6 @@
     <ProjectReference Include="..\AgenticLab.Runtime\AgenticLab.Runtime.csproj" />
     <ProjectReference Include="..\AgenticLab.Models\AgenticLab.Models.csproj" />
     <ProjectReference Include="..\AgenticLab.Agents\AgenticLab.Agents.csproj" />
-    <ProjectReference Include="..\AgenticLab.ServiceDefaults\AgenticLab.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>

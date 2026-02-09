@@ -1,5 +1,19 @@
 @page "/agents"
 
+<style>
+    fluent-dialog::part(control) {
+        min-width: 1100px;
+        max-width: 1200px;
+    }
+    fluent-dialog .fluent-dialog-body,
+    fluent-dialog fluent-dialog-body {
+        width: 100%;
+    }
+    fluent-dialog fluent-dialog-body > div {
+        width: 100%;
+    }
+</style>
+
 <PageTitle>AgenticLab — Agents</PageTitle>
 
 <div class="section-header">
@@ -39,6 +53,14 @@ else
             <span class="status-dot @(context.IsActive ? "online" : "offline")"></span>
             @(context.IsActive ? "Active" : "Inactive")
         </TemplateColumn>
+        <TemplateColumn Title="Prompt">
+            @{
+                var hasOverride = !string.IsNullOrWhiteSpace(context.SystemPromptOverride);
+            }
+            <FluentBadge Appearance="@(hasOverride ? Appearance.Accent : Appearance.Neutral)" Style="font-size: 0.75rem;">
+                @(hasOverride ? "Custom" : "Default")
+            </FluentBadge>
+        </TemplateColumn>
         <TemplateColumn Title="Actions">
             <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => EditConfig(context))">
                 <FluentIcon Value="@(new Size16.Edit())" />
@@ -55,25 +77,31 @@ else
 
 <h2 style="margin-top: 32px;">Available Agent Types</h2>
 
-<FluentStack Orientation="Orientation.Horizontal" Wrap="true" Style="gap: 16px;">
+<FluentStack Orientation="Orientation.Vertical" Style="gap: 16px;">
     @foreach (var agentType in AgentFactoryService.GetAvailableAgentTypes())
     {
-        <FluentCard Style="min-width: 250px; max-width: 320px;">
-            <h3>@agentType.DisplayName</h3>
-            <p>@agentType.Description</p>
-            <code>Type: @agentType.TypeId</code>
+        <FluentCard Style="width: 100%;">
+            <FluentStack Orientation="Orientation.Horizontal" Style="align-items: baseline; gap: 12px; margin-bottom: 4px;">
+                <h3 style="margin: 0;">@agentType.DisplayName</h3>
+                <code style="font-size: 0.8rem; opacity: 0.6;">@agentType.TypeId</code>
+            </FluentStack>
+            <p style="margin: 4px 0 8px;">@agentType.Description</p>
+            <details>
+                <summary style="cursor: pointer; font-weight: 600; font-size: 0.85rem;">System Prompt</summary>
+                <pre style="white-space: pre-wrap; background: var(--neutral-layer-3, #f5f5f5); padding: 12px; border-radius: 4px; margin-top: 8px; font-size: 0.85rem; line-height: 1.4;">@agentType.SystemPrompt.Trim()</pre>
+            </details>
         </FluentCard>
     }
 </FluentStack>
 
 @if (_showDialog)
 {
-    <FluentDialog @bind-Hidden="@_hideDialog" Modal="true" TrapFocus="true" Style="min-width: 500px;" @ondialogdismiss="CloseDialog">
+    <FluentDialog @bind-Hidden="@_hideDialog" Modal="true" TrapFocus="true" Style="min-width: 1100px; max-width: 1200px; --dialog-width: 1100px;" @ondialogdismiss="CloseDialog">
         <FluentDialogHeader>
             @(_editingConfig is null ? "Create Agent" : "Edit Agent")
         </FluentDialogHeader>
-        <FluentDialogBody>
-            <FluentStack Orientation="Orientation.Vertical" Style="gap: 12px;">
+        <FluentDialogBody Style="width: 100%;">
+            <FluentStack Orientation="Orientation.Vertical" Style="gap: 12px; width: 100%;">
                 <FluentTextField @bind-Value="_formDisplayName" Label="Display Name" Placeholder="My Agent" Style="width: 100%;" />
 
                 <FluentSelect TOption="string" @bind-Value="_formAgentType" Label="Agent Type" Style="width: 100%;">
@@ -82,6 +110,14 @@ else
                         <FluentOption TOption="string" Value="@at.TypeId">@at.DisplayName — @at.Description</FluentOption>
                     }
                 </FluentSelect>
+
+                @{
+                    var defaultPrompt = AgenticLab.Agents.SpecialistAgents.GetDefaultSystemPrompt(_formAgentType);
+                }
+                <details style="border: 1px solid var(--neutral-stroke-rest, #e0e0e0); border-radius: 4px; padding: 8px 12px;">
+                    <summary style="cursor: pointer; font-weight: 600; font-size: 0.85rem;">Default System Prompt</summary>
+                    <div style="white-space: pre-wrap; background: var(--neutral-layer-3, #f5f5f5); padding: 12px; border-radius: 4px; margin-top: 8px; font-size: 0.85rem; font-family: inherit; line-height: 1.5; max-height: 200px; overflow-y: auto;">@defaultPrompt.Trim()</div>
+                </details>
 
                 <FluentSelect TOption="string" @bind-Value="_formModelConfigId" Label="Model Configuration" Style="width: 100%;">
                     @foreach (var mc in _modelConfigs)
@@ -93,9 +129,29 @@ else
                 <FluentTextArea @bind-Value="_formSystemPrompt" Label="System Prompt Override (optional)" Rows="3" Style="width: 100%;"
                     Placeholder="Leave empty to use agent's default prompt." />
 
-                <FluentNumberField @bind-Value="_formTempOverride" Label="Temperature Override (optional)" Min="0" Max="2" Step="0.1" Style="width: 100%;" />
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <FluentNumberField @bind-Value="_formTempOverride" Label="Temperature Override (optional)" Min="0" Max="2" Step="0.1" Style="width: 100%;" />
+                    <FluentNumberField @bind-Value="_formMaxTokensOverride" Label="Max Tokens Override (optional)" Min="50" Max="32000" Step="100" Style="width: 100%;" />
+                </div>
 
-                <FluentNumberField @bind-Value="_formMaxTokensOverride" Label="Max Tokens Override (optional)" Min="50" Max="32000" Step="100" Style="width: 100%;" />
+                <div style="border: 1px solid var(--neutral-stroke-rest, #e0e0e0); border-radius: 6px; padding: 16px; margin-top: 4px; background: var(--neutral-layer-2, #fafafa);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <FluentIcon Value="@(new Size16.Settings())" />
+                        <h4 style="margin: 0;">Advanced Ollama Parameters</h4>
+                    </div>
+                    <p style="margin: 0 0 12px; font-size: 0.8rem; opacity: 0.6;">These map directly to <a href="https://docs.ollama.com/modelfile" target="_blank" rel="noopener">Ollama's model parameters</a>. Leave empty to use Ollama defaults.</p>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                        <FluentNumberField @bind-Value="_formTopPOverride" Label="Top-P (nucleus sampling)" Min="0" Max="1" Step="0.05" Style="width: 100%;" Placeholder="Default: 0.9" />
+                        <FluentNumberField @bind-Value="_formTopKOverride" Label="Top-K (token candidates)" Min="1" Max="200" Step="5" Style="width: 100%;" Placeholder="Default: 40" />
+                        <FluentNumberField @bind-Value="_formRepeatPenaltyOverride" Label="Repeat Penalty" Min="0" Max="3" Step="0.1" Style="width: 100%;" Placeholder="Default: 1.1" />
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                        <FluentNumberField @bind-Value="_formNumCtxOverride" Label="Context Window (tokens)" Min="256" Max="131072" Step="256" Style="width: 100%;" Placeholder="Default: 2048" />
+                        <FluentNumberField @bind-Value="_formSeedOverride" Label="Seed (0 = random)" Min="0" Max="999999" Step="1" Style="width: 100%;" Placeholder="Default: 0" />
+                    </div>
+                </div>
             </FluentStack>
         </FluentDialogBody>
         <FluentDialogFooter>
@@ -123,6 +179,11 @@ else
     private string _formSystemPrompt = "";
     private double? _formTempOverride;
     private int? _formMaxTokensOverride;
+    private double? _formTopPOverride;
+    private int? _formTopKOverride;
+    private double? _formRepeatPenaltyOverride;
+    private int? _formNumCtxOverride;
+    private int? _formSeedOverride;
 
     protected override void OnInitialized()
     {
@@ -139,6 +200,11 @@ else
         _formSystemPrompt = "";
         _formTempOverride = null;
         _formMaxTokensOverride = null;
+        _formTopPOverride = null;
+        _formTopKOverride = null;
+        _formRepeatPenaltyOverride = null;
+        _formNumCtxOverride = null;
+        _formSeedOverride = null;
         _showDialog = true;
         _hideDialog = false;
     }
@@ -152,6 +218,11 @@ else
         _formSystemPrompt = config.SystemPromptOverride ?? "";
         _formTempOverride = config.TemperatureOverride;
         _formMaxTokensOverride = config.MaxTokensOverride;
+        _formTopPOverride = config.TopPOverride;
+        _formTopKOverride = config.TopKOverride;
+        _formRepeatPenaltyOverride = config.RepeatPenaltyOverride;
+        _formNumCtxOverride = config.NumCtxOverride;
+        _formSeedOverride = config.SeedOverride;
         _showDialog = true;
         _hideDialog = false;
     }
@@ -166,6 +237,11 @@ else
             _editingConfig.SystemPromptOverride = string.IsNullOrWhiteSpace(_formSystemPrompt) ? null : _formSystemPrompt;
             _editingConfig.TemperatureOverride = _formTempOverride;
             _editingConfig.MaxTokensOverride = _formMaxTokensOverride;
+            _editingConfig.TopPOverride = _formTopPOverride;
+            _editingConfig.TopKOverride = _formTopKOverride;
+            _editingConfig.RepeatPenaltyOverride = _formRepeatPenaltyOverride;
+            _editingConfig.NumCtxOverride = _formNumCtxOverride;
+            _editingConfig.SeedOverride = _formSeedOverride;
             AgentFactory.UpdateConfig(_editingConfig);
         }
         else
@@ -177,7 +253,12 @@ else
                 ModelConfigId = _formModelConfigId,
                 SystemPromptOverride = string.IsNullOrWhiteSpace(_formSystemPrompt) ? null : _formSystemPrompt,
                 TemperatureOverride = _formTempOverride,
-                MaxTokensOverride = _formMaxTokensOverride
+                MaxTokensOverride = _formMaxTokensOverride,
+                TopPOverride = _formTopPOverride,
+                TopKOverride = _formTopKOverride,
+                RepeatPenaltyOverride = _formRepeatPenaltyOverride,
+                NumCtxOverride = _formNumCtxOverride,
+                SeedOverride = _formSeedOverride
             };
             AgentFactory.AddConfig(config);
         }

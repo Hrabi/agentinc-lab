@@ -2,99 +2,155 @@
 
 <PageTitle>AgenticLab — Playground</PageTitle>
 
-<div class="section-header">
-    <h1>Playground</h1>
-</div>
+@* Two-column layout: config sidebar + chat area *@
+<div style="display: grid; grid-template-columns: 300px 1fr; gap: 16px; height: calc(100vh - 170px);">
 
-<p>Interactive chat with your configured agents. Select an agent and start a conversation.</p>
+    @* ── Left column: Agent config ── *@
+    <div style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+        <h2 style="margin: 0;">Playground</h2>
 
-<FluentStack Orientation="Orientation.Horizontal" Style="gap: 16px; margin-bottom: 16px;">
-    <FluentSelect TOption="string" @bind-Value="_selectedAgentId" Label="Select Agent" Style="min-width: 300px;"
-        @oninput="OnAgentChanged">
-        <FluentOption TOption="string" Value="">— Choose an agent —</FluentOption>
-        @foreach (var agent in _agents)
-        {
-            <FluentOption TOption="string" Value="@agent.Id">@agent.DisplayName (@agent.AgentType)</FluentOption>
-        }
-    </FluentSelect>
-
-    <FluentButton Appearance="Appearance.Outline" OnClick="NewSession" Disabled="@(string.IsNullOrEmpty(_selectedAgentId))">
-        <FluentIcon Value="@(new Size16.Add())" Slot="start" />
-        New Session
-    </FluentButton>
-
-    <FluentButton Appearance="Appearance.Outline" OnClick="ClearChat" Disabled="@(_session is null)">
-        <FluentIcon Value="@(new Size16.Delete())" Slot="start" />
-        Clear Chat
-    </FluentButton>
-</FluentStack>
-
-@if (_selectedAgentConfig is not null)
-{
-    var modelConfig = ModelRegistry.GetConfig(_selectedAgentConfig.ModelConfigId);
-    <FluentCard Style="margin-bottom: 16px; padding: 12px;">
-        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 24px;" Wrap="true">
-            <div><strong>Model:</strong> @(modelConfig?.ModelName ?? "Unknown")</div>
-            <div><strong>Temperature:</strong> @((_selectedAgentConfig.TemperatureOverride ?? modelConfig?.Temperature ?? 0.7).ToString("F1"))</div>
-            <div><strong>Max Tokens:</strong> @(_selectedAgentConfig.MaxTokensOverride ?? modelConfig?.MaxTokens ?? 1000)</div>
-            <div><strong>Type:</strong> @_selectedAgentConfig.AgentType</div>
-        </FluentStack>
-    </FluentCard>
-}
-
-<div class="chat-container">
-    <div class="chat-messages">
-        @if (_session is null)
-        {
-            <FluentCard Style="text-align: center; padding: 48px;">
-                <h3>Select an agent and start chatting</h3>
-                <p>Or try a demo example from the <FluentAnchor Href="/examples">Examples</FluentAnchor> page.</p>
-            </FluentCard>
-        }
-        else if (_session.Entries.Count == 0)
-        {
-            <FluentCard Style="text-align: center; padding: 48px;">
-                <h3>Session started — type a message below</h3>
-            </FluentCard>
-        }
-        else
-        {
-            @foreach (var entry in _session.Entries)
+        <FluentSelect TOption="string" @bind-Value="_selectedAgentId" Label="Select Agent"
+            @oninput="OnAgentChanged">
+            <FluentOption TOption="string" Value="">— Choose an agent —</FluentOption>
+            @foreach (var agent in _agents)
             {
-                <div class="chat-message @entry.Role">
-                    <div>@entry.Content</div>
-                    @if (entry.Role == "assistant")
-                    {
-                        <div class="meta">
-                            @entry.AgentName · @(entry.ModelName ?? "unknown") · @(entry.DurationMs)ms ·
-                            @(entry.PromptTokens + entry.CompletionTokens) tokens
-                            @if (!entry.Success) { <span style="color: var(--error);"> (failed)</span> }
-                        </div>
-                    }
-                </div>
+                <FluentOption TOption="string" Value="@agent.Id">@agent.DisplayName (@agent.AgentType)</FluentOption>
             }
+        </FluentSelect>
 
-            @if (_isProcessing)
-            {
-                <div class="chat-message assistant">
-                    <FluentProgressRing Style="width: 20px; height: 20px;" />
-                    <span style="margin-left: 8px;">Thinking...</span>
-                </div>
-            }
-        }
-    </div>
-
-    <div class="chat-input-area">
         <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px;">
-            <FluentTextArea @bind-Value="_userInput" Placeholder="Type your message..." Rows="2" Style="flex: 1;"
-                @onkeydown="HandleKeyDown" Disabled="@(_session is null || _isProcessing)" />
-            <FluentButton Appearance="Appearance.Accent" OnClick="SendMessage"
-                Disabled="@(string.IsNullOrWhiteSpace(_userInput) || _isProcessing || _session is null)"
-                Style="align-self: flex-end;">
-                <FluentIcon Value="@(new Size16.Send())" />
+            <FluentButton Appearance="Appearance.Outline" OnClick="NewSession"
+                Disabled="@(string.IsNullOrEmpty(_selectedAgentId))" Style="flex: 1;">
+                <FluentIcon Value="@(new Size16.Add())" Slot="start" />
+                New Session
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Outline" OnClick="ClearChat"
+                Disabled="@(_session is null)" Style="flex: 1;">
+                <FluentIcon Value="@(new Size16.Delete())" Slot="start" />
+                Clear
             </FluentButton>
         </FluentStack>
+
+        @if (_selectedAgentConfig is not null)
+        {
+            var modelConfig = ModelRegistry.GetConfig(_selectedAgentConfig.ModelConfigId);
+            var effectivePrompt = !string.IsNullOrWhiteSpace(_selectedAgentConfig.SystemPromptOverride)
+                ? _selectedAgentConfig.SystemPromptOverride
+                : AgenticLab.Agents.SpecialistAgents.GetDefaultSystemPrompt(_selectedAgentConfig.AgentType);
+            <FluentCard Style="padding: 12px; flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                <div style="font-size: 0.82rem; display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; flex-shrink: 0;">
+                    <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 4px;">Agent &amp; Model</div>
+                    <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 8px;">
+                        <span style="opacity: 0.7;">Type:</span> <span>@_selectedAgentConfig.AgentType</span>
+                        <span style="opacity: 0.7;">Model:</span> <span>@(modelConfig?.ModelName ?? "Unknown")</span>
+                    </div>
+                </div>
+
+                @{
+                    var hasAdvanced = _selectedAgentConfig.TopPOverride is not null
+                        || _selectedAgentConfig.TopKOverride is not null
+                        || _selectedAgentConfig.RepeatPenaltyOverride is not null
+                        || _selectedAgentConfig.NumCtxOverride is not null
+                        || _selectedAgentConfig.SeedOverride is not null;
+                }
+                <div style="font-size: 0.82rem; border: 1px solid var(--neutral-stroke-rest, #e0e0e0); border-radius: 4px; padding: 8px; margin-bottom: 8px; background: var(--neutral-layer-2, #fafafa); flex-shrink: 0;">
+                    <div style="font-weight: 600; font-size: 0.8rem; margin-bottom: 4px;">Parameters</div>
+                    <div style="display: grid; grid-template-columns: auto 1fr; gap: 2px 8px;">
+                        <span style="opacity: 0.7;">Temperature:</span> <span>@((_selectedAgentConfig.TemperatureOverride ?? modelConfig?.Temperature ?? 0.7).ToString("F1"))</span>
+                        <span style="opacity: 0.7;">Max Tokens:</span> <span>@(_selectedAgentConfig.MaxTokensOverride ?? modelConfig?.MaxTokens ?? 1000)</span>
+                        <span style="opacity: 0.7;">Top-P:</span> <span>@(_selectedAgentConfig.TopPOverride?.ToString("F2") ?? "0.90")<span style="opacity:0.5; font-size:0.75rem;">@(hasNoOverride(_selectedAgentConfig.TopPOverride))</span></span>
+                        <span style="opacity: 0.7;">Top-K:</span> <span>@(_selectedAgentConfig.TopKOverride?.ToString() ?? "40")<span style="opacity:0.5; font-size:0.75rem;">@(hasNoOverride(_selectedAgentConfig.TopKOverride))</span></span>
+                        <span style="opacity: 0.7;">Repeat Penalty:</span> <span>@(_selectedAgentConfig.RepeatPenaltyOverride?.ToString("F1") ?? "1.1")<span style="opacity:0.5; font-size:0.75rem;">@(hasNoOverride(_selectedAgentConfig.RepeatPenaltyOverride))</span></span>
+                        <span style="opacity: 0.7;">Context Window:</span> <span>@(_selectedAgentConfig.NumCtxOverride?.ToString() ?? "2048")<span style="opacity:0.5; font-size:0.75rem;">@(hasNoOverride(_selectedAgentConfig.NumCtxOverride))</span></span>
+                        @if (_selectedAgentConfig.SeedOverride is not null)
+                        {
+                            <span style="opacity: 0.7;">Seed:</span> <span>@_selectedAgentConfig.SeedOverride.Value</span>
+                        }
+                    </div>
+                </div>
+
+                <div style="font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; flex-shrink: 0;">
+                    System Prompt
+                    @if (!string.IsNullOrWhiteSpace(_selectedAgentConfig.SystemPromptOverride))
+                    {
+                        <FluentBadge Appearance="Appearance.Accent" Style="font-size: 0.7rem; margin-left: 6px;">Custom</FluentBadge>
+                    }
+                </div>
+                <div style="white-space: pre-wrap; background: var(--neutral-layer-3, #f5f5f5); padding: 10px; border-radius: 4px; font-size: 0.8rem; font-family: inherit; line-height: 1.4; flex: 1; overflow-y: auto; min-height: 0;">@effectivePrompt.Trim()</div>
+            </FluentCard>
+        }
+
+        <p style="font-size: 0.8rem; opacity: 0.6; margin: 0; flex-shrink: 0;">
+            Press <strong>Enter</strong> to send, <strong>Shift+Enter</strong> for new line.
+        </p>
     </div>
+
+    @* ── Right column: Chat area ── *@
+    <FluentCard Style="display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden;">
+
+        @* Scrollable messages *@
+        <div style="flex: 1; overflow-y: auto; padding: 16px; min-height: 0;">
+            @if (_session is null)
+            {
+                <div style="text-align: center; padding: 48px 16px; opacity: 0.6;">
+                    <FluentIcon Value="@(new Size20.Chat())" Style="margin-bottom: 12px;" />
+                    <h3>Select an agent and start chatting</h3>
+                    <p>Or try a demo from the <FluentAnchor Href="/examples">Examples</FluentAnchor> page.</p>
+                </div>
+            }
+            else if (_session.Entries.Count == 0)
+            {
+                <div style="text-align: center; padding: 48px 16px; opacity: 0.6;">
+                    <FluentIcon Value="@(new Size20.Chat())" Style="margin-bottom: 12px;" />
+                    <h3>Session started</h3>
+                    <p>Type a message below to begin.</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var entry in _session.Entries)
+                {
+                    <div class="chat-message @entry.Role">
+                        <div style="white-space: pre-wrap;">@entry.Content</div>
+                        @if (entry.Role == "assistant")
+                        {
+                            <div class="meta">
+                                @entry.AgentName · @(entry.ModelName ?? "unknown") · @(entry.DurationMs)ms ·
+                                @(entry.PromptTokens + entry.CompletionTokens) tokens
+                                @if (!entry.Success) { <span style="color: #e74c3c;"> (failed)</span> }
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (_isProcessing)
+                {
+                    <div class="chat-message assistant">
+                        <FluentStack Orientation="Orientation.Horizontal" Style="align-items: center; gap: 8px;">
+                            <FluentProgressRing Style="width: 20px; height: 20px;" />
+                            <span>Thinking...</span>
+                        </FluentStack>
+                    </div>
+                }
+            }
+        </div>
+
+        @* Input area — always pinned at bottom of card *@
+        <div style="flex-shrink: 0; padding: 12px 16px; border-top: 1px solid var(--neutral-stroke-divider-rest, #e0e0e0); background: var(--neutral-layer-2, #fafafa);">
+            <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; align-items: flex-end;">
+                <FluentTextArea @bind-Value="_userInput" @bind-Value:event="oninput" Placeholder="Type your message..."
+                    Rows="2" Style="flex: 1;"
+                    @onkeydown="HandleKeyDown"
+                    Disabled="@(_session is null || _isProcessing)" />
+                <FluentButton Appearance="Appearance.Accent" OnClick="SendMessage"
+                    Disabled="@(string.IsNullOrWhiteSpace(_userInput) || _isProcessing || _session is null)"
+                    Style="height: 40px; padding: 0 16px;">
+                    <FluentIcon Value="@(new Size16.Send())" Slot="start" />
+                    Send
+                </FluentButton>
+            </FluentStack>
+        </div>
+    </FluentCard>
 </div>
 
 @code {
@@ -102,9 +158,13 @@
     [Inject] private ModelRegistryService ModelRegistry { get; set; } = default!;
     [Inject] private ChatService Chat { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private ExampleService ExampleSvc { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "agentId")]
     public string? InitialAgentId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "exampleId")]
+    public string? InitialExampleId { get; set; }
 
     private List<AgentConfig> _agents = [];
     private string _selectedAgentId = "";
@@ -112,6 +172,8 @@
     private ChatSession? _session;
     private string _userInput = "";
     private bool _isProcessing;
+
+    private static string hasNoOverride(object? value) => value is null ? " (default)" : "";
 
     protected override void OnInitialized()
     {
@@ -122,6 +184,15 @@
             _selectedAgentId = InitialAgentId;
             _selectedAgentConfig = AgentFactory.GetConfig(InitialAgentId);
             _session = Chat.CreateSession(InitialAgentId);
+        }
+
+        if (!string.IsNullOrEmpty(InitialExampleId))
+        {
+            var example = ExampleSvc.GetExample(InitialExampleId);
+            if (example is not null)
+            {
+                _userInput = example.Prompt;
+            }
         }
     }
 
@@ -151,7 +222,7 @@
 
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
-        if (e is { Key: "Enter", CtrlKey: true })
+        if (e.Key == "Enter" && !e.ShiftKey)
         {
             await SendMessage();
         }

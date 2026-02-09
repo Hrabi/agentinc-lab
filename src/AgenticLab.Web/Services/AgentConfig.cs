@@ -41,6 +41,31 @@ public class AgentConfig
     public int? MaxTokensOverride { get; set; }
 
     /// <summary>
+    /// Override top-p / nucleus sampling (null = Ollama default 0.9).
+    /// </summary>
+    public double? TopPOverride { get; set; }
+
+    /// <summary>
+    /// Override top-k sampling (null = Ollama default 40).
+    /// </summary>
+    public int? TopKOverride { get; set; }
+
+    /// <summary>
+    /// Override repeat penalty (null = Ollama default 1.1).
+    /// </summary>
+    public double? RepeatPenaltyOverride { get; set; }
+
+    /// <summary>
+    /// Override context window size in tokens (null = Ollama default 2048).
+    /// </summary>
+    public int? NumCtxOverride { get; set; }
+
+    /// <summary>
+    /// Override random seed for reproducible output (null = random).
+    /// </summary>
+    public int? SeedOverride { get; set; }
+
+    /// <summary>
     /// Whether this agent configuration is currently active.
     /// </summary>
     public bool IsActive { get; set; } = true;

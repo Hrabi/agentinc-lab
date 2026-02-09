@@ -1,7 +1,6 @@
 using AgenticLab.Agents;
 using AgenticLab.Core.Abstractions;
 using AgenticLab.Models.Ollama;
-using AgenticLab.Runtime;
 
 namespace AgenticLab.Web.Services;
 
@@ -27,14 +26,168 @@ public class AgentFactoryService
         _loggerFactory = loggerFactory;
         _logger = logger;
 
-        // Seed default agent configuration
-        _configs.Add(new AgentConfig
-        {
-            Id = "default-qa",
-            DisplayName = "Q&A Agent (Llama 3.2)",
-            AgentType = "SimpleQuestion",
-            ModelConfigId = "default-llama"
-        });
+        // Seed agent configurations — precise and fast variants for each specialist type
+        _configs.AddRange([
+            // Q&A
+            new AgentConfig
+            {
+                Id = "qa-precise",
+                DisplayName = "Q&A (Precise)",
+                AgentType = "SimpleQuestion",
+                ModelConfigId = "precise-qwen",
+                TemperatureOverride = 0.2,
+                MaxTokensOverride = 1500
+            },
+            new AgentConfig
+            {
+                Id = "qa-fast",
+                DisplayName = "Q&A (Fast)",
+                AgentType = "SimpleQuestion",
+                ModelConfigId = "fast-llama",
+                TemperatureOverride = 0.8,
+                MaxTokensOverride = 500
+            },
+
+            // Summarizer
+            new AgentConfig
+            {
+                Id = "sum-precise",
+                DisplayName = "Summarizer (Precise)",
+                AgentType = "Summarizer",
+                ModelConfigId = "precise-qwen",
+                TemperatureOverride = 0.2,
+                MaxTokensOverride = 1000
+            },
+            new AgentConfig
+            {
+                Id = "sum-fast",
+                DisplayName = "Summarizer (Fast)",
+                AgentType = "Summarizer",
+                ModelConfigId = "fast-llama",
+                TemperatureOverride = 0.7,
+                MaxTokensOverride = 500
+            },
+
+            // Data Extractor
+            new AgentConfig
+            {
+                Id = "extract-precise",
+                DisplayName = "Data Extractor (Precise)",
+                AgentType = "DataExtractor",
+                ModelConfigId = "precise-qwen",
+                TemperatureOverride = 0.1,
+                MaxTokensOverride = 2000
+            },
+            new AgentConfig
+            {
+                Id = "extract-fast",
+                DisplayName = "Data Extractor (Fast)",
+                AgentType = "DataExtractor",
+                ModelConfigId = "fast-llama",
+                TemperatureOverride = 0.3,
+                MaxTokensOverride = 1000
+            },
+
+            // Code Generator
+            new AgentConfig
+            {
+                Id = "code-precise",
+                DisplayName = "Code Generator (Precise)",
+                AgentType = "CodeGenerator",
+                ModelConfigId = "precise-qwen",
+                TemperatureOverride = 0.2,
+                MaxTokensOverride = 2000
+            },
+            new AgentConfig
+            {
+                Id = "code-fast",
+                DisplayName = "Code Generator (Fast)",
+                AgentType = "CodeGenerator",
+                ModelConfigId = "fast-llama",
+                TemperatureOverride = 0.5,
+                MaxTokensOverride = 1000
+            },
+
+            // Translator
+            new AgentConfig
+            {
+                Id = "translate-precise",
+                DisplayName = "Translator (Precise)",
+                AgentType = "Translator",
+                ModelConfigId = "precise-qwen",
+                TemperatureOverride = 0.2,
+                MaxTokensOverride = 1500
+            },
+            new AgentConfig
+            {
+                Id = "translate-fast",
+                DisplayName = "Translator (Fast)",
+                AgentType = "Translator",
+                ModelConfigId = "fast-llama",
+                TemperatureOverride = 0.5,
+                MaxTokensOverride = 800
+            },
+
+            // Classifier
+            new AgentConfig
+            {
+                Id = "classify-precise",
+                DisplayName = "Classifier (Precise)",
+                AgentType = "Classifier",
+                ModelConfigId = "precise-qwen",
+                TemperatureOverride = 0.1,
+                MaxTokensOverride = 1000
+            },
+            new AgentConfig
+            {
+                Id = "classify-fast",
+                DisplayName = "Classifier (Fast)",
+                AgentType = "Classifier",
+                ModelConfigId = "fast-llama",
+                TemperatureOverride = 0.3,
+                MaxTokensOverride = 500
+            },
+
+            // Format Converter
+            new AgentConfig
+            {
+                Id = "convert-precise",
+                DisplayName = "Format Converter (Precise)",
+                AgentType = "FormatConverter",
+                ModelConfigId = "precise-qwen",
+                TemperatureOverride = 0.1,
+                MaxTokensOverride = 2000
+            },
+            new AgentConfig
+            {
+                Id = "convert-fast",
+                DisplayName = "Format Converter (Fast)",
+                AgentType = "FormatConverter",
+                ModelConfigId = "fast-llama",
+                TemperatureOverride = 0.3,
+                MaxTokensOverride = 1000
+            },
+
+            // Creative Writer (temperature comparison)
+            new AgentConfig
+            {
+                Id = "creative-low",
+                DisplayName = "Creative Writer (Low Temp)",
+                AgentType = "CreativeWriter",
+                ModelConfigId = "default-llama",
+                TemperatureOverride = 0.2,
+                MaxTokensOverride = 1000
+            },
+            new AgentConfig
+            {
+                Id = "creative-high",
+                DisplayName = "Creative Writer (High Temp)",
+                AgentType = "CreativeWriter",
+                ModelConfigId = "creative-llama",
+                TemperatureOverride = 1.0,
+                MaxTokensOverride = 1000
+            }
+        ]);
     }
 
     /// <summary>
@@ -78,12 +231,14 @@ public class AgentFactoryService
     /// </summary>
     public static IReadOnlyList<AgentTypeInfo> GetAvailableAgentTypes() =>
     [
-        new("SimpleQuestion", "Simple Q&A", "Answers questions using a configured LLM model."),
-        new("Summarizer", "Summarizer", "Summarizes long text into concise output."),
-        new("DataExtractor", "Data Extractor", "Extracts structured data from unstructured text."),
-        new("CodeGenerator", "Code Generator", "Generates code based on natural language descriptions."),
-        new("Translator", "Translator", "Translates text between languages."),
-        new("Classifier", "Classifier", "Classifies text into predefined categories.")
+        new("SimpleQuestion", "Simple Q&A", "Answers questions using a configured LLM model.", SpecialistAgents.GetDefaultSystemPrompt("SimpleQuestion")),
+        new("Summarizer", "Summarizer", "Summarizes long text into concise output.", SpecialistAgents.GetDefaultSystemPrompt("Summarizer")),
+        new("DataExtractor", "Data Extractor", "Extracts structured data from unstructured text.", SpecialistAgents.GetDefaultSystemPrompt("DataExtractor")),
+        new("CodeGenerator", "Code Generator", "Generates code based on natural language descriptions.", SpecialistAgents.GetDefaultSystemPrompt("CodeGenerator")),
+        new("Translator", "Translator", "Translates text between languages.", SpecialistAgents.GetDefaultSystemPrompt("Translator")),
+        new("Classifier", "Classifier", "Classifies text into predefined categories.", SpecialistAgents.GetDefaultSystemPrompt("Classifier")),
+        new("FormatConverter", "Format Converter", "Converts data between formats (JSON, YAML, XML, etc.).", SpecialistAgents.GetDefaultSystemPrompt("FormatConverter")),
+        new("CreativeWriter", "Creative Writer", "Generates creative content with variable temperature.", SpecialistAgents.GetDefaultSystemPrompt("CreativeWriter"))
     ];
 
     /// <summary>
@@ -100,16 +255,7 @@ public class AgentFactoryService
 
         var model = CreateModel(modelConfig);
 
-        return agentConfig.AgentType switch
-        {
-            "SimpleQuestion" => new SimpleQuestionAgent(model),
-            "Summarizer" => new SimpleQuestionAgent(model), // Reuses SimpleQuestion with different system prompt for now
-            "DataExtractor" => new SimpleQuestionAgent(model),
-            "CodeGenerator" => new SimpleQuestionAgent(model),
-            "Translator" => new SimpleQuestionAgent(model),
-            "Classifier" => new SimpleQuestionAgent(model),
-            _ => null
-        };
+        return SpecialistAgents.Create(agentConfig.AgentType, model);
     }
 
     /// <summary>
@@ -132,4 +278,4 @@ public class AgentFactoryService
 /// <summary>
 /// Describes an available agent type.
 /// </summary>
-public record AgentTypeInfo(string TypeId, string DisplayName, string Description);
+public record AgentTypeInfo(string TypeId, string DisplayName, string Description, string SystemPrompt);

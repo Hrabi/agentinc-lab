@@ -74,6 +74,12 @@ public class ChatService
             }
         };
 
+        if (agentConfig.TopPOverride is not null) request.Metadata["topP"] = agentConfig.TopPOverride.Value;
+        if (agentConfig.TopKOverride is not null) request.Metadata["topK"] = agentConfig.TopKOverride.Value;
+        if (agentConfig.RepeatPenaltyOverride is not null) request.Metadata["repeatPenalty"] = agentConfig.RepeatPenaltyOverride.Value;
+        if (agentConfig.NumCtxOverride is not null) request.Metadata["numCtx"] = agentConfig.NumCtxOverride.Value;
+        if (agentConfig.SeedOverride is not null) request.Metadata["seed"] = agentConfig.SeedOverride.Value;
+
         var sw = Stopwatch.StartNew();
         var response = await agent.ProcessAsync(request, cancellationToken);
         sw.Stop();

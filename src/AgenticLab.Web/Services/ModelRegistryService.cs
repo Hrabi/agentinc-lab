@@ -36,6 +36,42 @@ public class ModelRegistryService
                 Temperature = 0.7,
                 MaxTokens = 2000,
                 SystemPrompt = "You are a helpful assistant. Answer questions clearly and concisely."
+            },
+            new ModelConfig
+            {
+                Id = "precise-llama",
+                DisplayName = "Llama 3.2 (Precise)",
+                ModelName = "llama3.2",
+                Temperature = 0.2,
+                MaxTokens = 1500,
+                SystemPrompt = "You are a helpful assistant. Be precise, accurate, and deterministic. Prefer factual, structured answers."
+            },
+            new ModelConfig
+            {
+                Id = "precise-qwen",
+                DisplayName = "Qwen 2.5 Coder 14B (Precise)",
+                ModelName = "qwen2.5-coder:14b",
+                Temperature = 0.2,
+                MaxTokens = 2000,
+                SystemPrompt = "You are a helpful assistant. Be precise, accurate, and deterministic. Prefer factual, structured answers."
+            },
+            new ModelConfig
+            {
+                Id = "fast-llama",
+                DisplayName = "Llama 3.2 (Fast)",
+                ModelName = "llama3.2",
+                Temperature = 0.8,
+                MaxTokens = 500,
+                SystemPrompt = "You are a helpful assistant. Be concise and respond quickly."
+            },
+            new ModelConfig
+            {
+                Id = "creative-llama",
+                DisplayName = "Llama 3.2 (Creative)",
+                ModelName = "llama3.2",
+                Temperature = 1.0,
+                MaxTokens = 1000,
+                SystemPrompt = "You are a creative assistant. Be imaginative and expressive."
             }
         ]);
     }

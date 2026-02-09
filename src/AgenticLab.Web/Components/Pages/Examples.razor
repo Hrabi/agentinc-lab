@@ -25,15 +25,12 @@
     @foreach (var example in FilteredExamples)
     {
         <FluentCard Class="example-card">
-            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: flex-start;">
-                <div style="flex: 1;">
-                    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; align-items: center; margin-bottom: 8px;">
-                        <h3 style="margin: 0;">@example.Title</h3>
-                        <FluentBadge>@example.Category</FluentBadge>
-                    </FluentStack>
-                    <p style="margin: 4px 0;">@example.Description</p>
-                </div>
-                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 4px;">
+            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; align-items: center;">
+                    <h3 style="margin: 0; white-space: nowrap;">@example.Title</h3>
+                    <FluentBadge>@example.Category</FluentBadge>
+                </FluentStack>
+                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 4px; flex-shrink: 0;">
                     <FluentButton Appearance="Appearance.Outline" OnClick="@(() => UseInPlayground(example))">
                         <FluentIcon Value="@(new Size16.Chat())" Slot="start" />
                         Playground
@@ -44,6 +41,27 @@
                     </FluentButton>
                 </FluentStack>
             </FluentStack>
+            <p style="margin: 0;">@example.Description</p>
+
+            @{
+                var suggested = GetSuggestedAgents(example);
+            }
+            @if (suggested.Count > 0)
+            {
+                <div style="margin-top: 8px;">
+                    <span style="font-size: 0.82rem; font-weight: 600; margin-right: 6px;">Suggested agents:</span>
+                    <FluentStack Orientation="Orientation.Horizontal" Wrap="true" Style="gap: 4px; display: inline-flex;">
+                        @foreach (var agent in suggested)
+                        {
+                            <FluentBadge Appearance="Appearance.Accent"
+                                Style="cursor: pointer; padding: 4px 10px; font-size: 0.78rem;"
+                                OnClick="@(() => UseInPlaygroundWithAgent(example, agent))">
+                                @agent.DisplayName
+                            </FluentBadge>
+                        }
+                    </FluentStack>
+                </div>
+            }
 
             @if (_expandedId == example.Id)
             {
@@ -72,9 +90,11 @@
 
 @code {
     [Inject] private ExampleService ExampleSvc { get; set; } = default!;
+    [Inject] private AgentFactoryService AgentFactory { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     private List<DemoExample> _examples = [];
+    private List<AgentConfig> _agents = [];
     private List<string> _categories = [];
     private string? _selectedCategory;
     private string? _expandedId;
@@ -86,7 +106,13 @@
     {
         _examples = ExampleSvc.GetExamples().ToList();
         _categories = ExampleSvc.GetCategories().ToList();
+        _agents = AgentFactory.GetConfigs().ToList();
     }
+
+    private List<AgentConfig> GetSuggestedAgents(DemoExample example) =>
+        string.IsNullOrEmpty(example.SuggestedAgentType)
+            ? []
+            : _agents.Where(a => a.AgentType == example.SuggestedAgentType && a.IsActive).ToList();
 
     private void ToggleExpand(string id)
     {
@@ -95,11 +121,16 @@
 
     private void UseInPlayground(DemoExample example)
     {
-        Navigation.NavigateTo($"/playground");
+        Navigation.NavigateTo($"/playground?exampleId={example.Id}");
+    }
+
+    private void UseInPlaygroundWithAgent(DemoExample example, AgentConfig agent)
+    {
+        Navigation.NavigateTo($"/playground?exampleId={example.Id}&agentId={agent.Id}");
     }
 
     private void UseInCompare(DemoExample example)
     {
-        Navigation.NavigateTo($"/compare");
+        Navigation.NavigateTo($"/compare?exampleId={example.Id}");
     }
 }

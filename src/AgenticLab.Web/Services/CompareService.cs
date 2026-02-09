@@ -53,6 +53,12 @@ public class CompareService
             }
 
             entry.AgentDisplayName = config.DisplayName;
+
+            var effectivePrompt = !string.IsNullOrWhiteSpace(config.SystemPromptOverride)
+                ? config.SystemPromptOverride
+                : AgenticLab.Agents.SpecialistAgents.GetDefaultSystemPrompt(config.AgentType);
+            entry.SystemPrompt = effectivePrompt;
+
             var agent = _agentFactory.CreateAgent(config);
             if (agent is null)
             {
@@ -60,7 +66,22 @@ public class CompareService
                 return entry;
             }
 
-            var request = new AgentRequest { Message = prompt };
+            var request = new AgentRequest
+            {
+                Message = prompt,
+                Metadata = new Dictionary<string, object>
+                {
+                    ["systemPrompt"] = config.SystemPromptOverride ?? "",
+                    ["temperature"] = config.TemperatureOverride ?? 0.7,
+                    ["maxTokens"] = config.MaxTokensOverride ?? 1000
+                }
+            };
+
+            if (config.TopPOverride is not null) request.Metadata["topP"] = config.TopPOverride.Value;
+            if (config.TopKOverride is not null) request.Metadata["topK"] = config.TopKOverride.Value;
+            if (config.RepeatPenaltyOverride is not null) request.Metadata["repeatPenalty"] = config.RepeatPenaltyOverride.Value;
+            if (config.NumCtxOverride is not null) request.Metadata["numCtx"] = config.NumCtxOverride.Value;
+            if (config.SeedOverride is not null) request.Metadata["seed"] = config.SeedOverride.Value;
 
             var sw = Stopwatch.StartNew();
             var response = await agent.ProcessAsync(request, cancellationToken);
@@ -101,6 +122,7 @@ public class CompareEntry
     public string AgentConfigId { get; set; } = "";
     public string AgentDisplayName { get; set; } = "";
     public string? ModelName { get; set; }
+    public string? SystemPrompt { get; set; }
     public string? Response { get; set; }
     public string? Error { get; set; }
     public bool Success { get; set; }

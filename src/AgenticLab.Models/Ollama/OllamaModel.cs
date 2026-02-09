@@ -27,17 +27,26 @@ public class OllamaModel : IModel
     {
         _logger.LogInformation("Generating response with Ollama model: {Model}", _modelName);
 
+        var options = new Dictionary<string, object>
+        {
+            ["temperature"] = request.Temperature,
+            ["num_predict"] = request.MaxTokens
+        };
+
+        if (request.TopP is not null) options["top_p"] = request.TopP.Value;
+        if (request.TopK is not null) options["top_k"] = request.TopK.Value;
+        if (request.RepeatPenalty is not null) options["repeat_penalty"] = request.RepeatPenalty.Value;
+        if (request.NumCtx is not null) options["num_ctx"] = request.NumCtx.Value;
+        if (request.Seed is not null) options["seed"] = request.Seed.Value;
+        if (request.Stop is { Count: > 0 }) options["stop"] = request.Stop;
+
         var ollamaRequest = new
         {
             model = _modelName,
             prompt = request.Prompt,
             system = request.SystemPrompt,
             stream = false,
-            options = new
-            {
-                temperature = request.Temperature,
-                num_predict = request.MaxTokens
-            }
+            options
         };
 
         var response = await _httpClient.PostAsJsonAsync("/api/generate", ollamaRequest, cancellationToken);

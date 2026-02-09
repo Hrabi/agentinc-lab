@@ -1,3 +1,7 @@
 {
-    "dotnet.defaultSolution": "src/AgenticLab.sln"
+    "dotnet.defaultSolution": "src/AgenticLab.sln",
+    "chat.tools.terminal.autoApprove": {
+        "dotnet list": true,
+        "npm install": true
+    }
 }
