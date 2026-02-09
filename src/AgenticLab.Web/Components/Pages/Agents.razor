@@ -1,0 +1,205 @@
+@page "/agents"
+
+<PageTitle>AgenticLab — Agents</PageTitle>
+
+<div class="section-header">
+    <h1>Agent Configuration</h1>
+</div>
+
+<p>Create and configure agents by combining an agent type with a model configuration. Customize behavior with system prompt overrides and parameter tuning.</p>
+
+<FluentToolbar Style="margin-bottom: 16px;">
+    <FluentButton Appearance="Appearance.Accent" OnClick="ShowAddDialog">
+        <FluentIcon Value="@(new Size16.Add())" Slot="start" />
+        Create Agent
+    </FluentButton>
+</FluentToolbar>
+
+@if (_configs.Count == 0)
+{
+    <FluentCard>
+        <p>No agents configured yet. Click "Create Agent" to get started.</p>
+    </FluentCard>
+}
+else
+{
+    <FluentDataGrid Items="@_configs.AsQueryable()" Style="width: 100%;">
+        <PropertyColumn Property="@(c => c.DisplayName)" Title="Name" />
+        <PropertyColumn Property="@(c => c.AgentType)" Title="Type" />
+        <TemplateColumn Title="Model">
+            @{
+                var model = ModelRegistry.GetConfig(context.ModelConfigId);
+            }
+            @(model?.DisplayName ?? "Unknown")
+        </TemplateColumn>
+        <TemplateColumn Title="Temp Override">
+            @(context.TemperatureOverride?.ToString("F1") ?? "Default")
+        </TemplateColumn>
+        <TemplateColumn Title="Status">
+            <span class="status-dot @(context.IsActive ? "online" : "offline")"></span>
+            @(context.IsActive ? "Active" : "Inactive")
+        </TemplateColumn>
+        <TemplateColumn Title="Actions">
+            <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => EditConfig(context))">
+                <FluentIcon Value="@(new Size16.Edit())" />
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => TestAgent(context))">
+                <FluentIcon Value="@(new Size16.Play())" />
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => DeleteConfig(context.Id))">
+                <FluentIcon Value="@(new Size16.Delete())" />
+            </FluentButton>
+        </TemplateColumn>
+    </FluentDataGrid>
+}
+
+<h2 style="margin-top: 32px;">Available Agent Types</h2>
+
+<FluentStack Orientation="Orientation.Horizontal" Wrap="true" Style="gap: 16px;">
+    @foreach (var agentType in AgentFactoryService.GetAvailableAgentTypes())
+    {
+        <FluentCard Style="min-width: 250px; max-width: 320px;">
+            <h3>@agentType.DisplayName</h3>
+            <p>@agentType.Description</p>
+            <code>Type: @agentType.TypeId</code>
+        </FluentCard>
+    }
+</FluentStack>
+
+@if (_showDialog)
+{
+    <FluentDialog @bind-Hidden="@_hideDialog" Modal="true" TrapFocus="true" Style="min-width: 500px;" @ondialogdismiss="CloseDialog">
+        <FluentDialogHeader>
+            @(_editingConfig is null ? "Create Agent" : "Edit Agent")
+        </FluentDialogHeader>
+        <FluentDialogBody>
+            <FluentStack Orientation="Orientation.Vertical" Style="gap: 12px;">
+                <FluentTextField @bind-Value="_formDisplayName" Label="Display Name" Placeholder="My Agent" Style="width: 100%;" />
+
+                <FluentSelect TOption="string" @bind-Value="_formAgentType" Label="Agent Type" Style="width: 100%;">
+                    @foreach (var at in AgentFactoryService.GetAvailableAgentTypes())
+                    {
+                        <FluentOption TOption="string" Value="@at.TypeId">@at.DisplayName — @at.Description</FluentOption>
+                    }
+                </FluentSelect>
+
+                <FluentSelect TOption="string" @bind-Value="_formModelConfigId" Label="Model Configuration" Style="width: 100%;">
+                    @foreach (var mc in _modelConfigs)
+                    {
+                        <FluentOption TOption="string" Value="@mc.Id">@mc.DisplayName (@mc.ModelName)</FluentOption>
+                    }
+                </FluentSelect>
+
+                <FluentTextArea @bind-Value="_formSystemPrompt" Label="System Prompt Override (optional)" Rows="3" Style="width: 100%;"
+                    Placeholder="Leave empty to use agent's default prompt." />
+
+                <FluentNumberField @bind-Value="_formTempOverride" Label="Temperature Override (optional)" Min="0" Max="2" Step="0.1" Style="width: 100%;" />
+
+                <FluentNumberField @bind-Value="_formMaxTokensOverride" Label="Max Tokens Override (optional)" Min="50" Max="32000" Step="100" Style="width: 100%;" />
+            </FluentStack>
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Accent" OnClick="SaveConfig">Save</FluentButton>
+            <FluentButton Appearance="Appearance.Neutral" OnClick="CloseDialog">Cancel</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    [Inject] private AgentFactoryService AgentFactory { get; set; } = default!;
+    [Inject] private ModelRegistryService ModelRegistry { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private List<AgentConfig> _configs = [];
+    private List<ModelConfig> _modelConfigs = [];
+    private bool _showDialog;
+    private bool _hideDialog = true;
+    private AgentConfig? _editingConfig;
+
+    // Form fields
+    private string _formDisplayName = "";
+    private string _formAgentType = "SimpleQuestion";
+    private string _formModelConfigId = "";
+    private string _formSystemPrompt = "";
+    private double? _formTempOverride;
+    private int? _formMaxTokensOverride;
+
+    protected override void OnInitialized()
+    {
+        _configs = AgentFactory.GetConfigs().ToList();
+        _modelConfigs = ModelRegistry.GetConfigs().ToList();
+    }
+
+    private void ShowAddDialog()
+    {
+        _editingConfig = null;
+        _formDisplayName = "";
+        _formAgentType = "SimpleQuestion";
+        _formModelConfigId = _modelConfigs.Count > 0 ? _modelConfigs[0].Id : "";
+        _formSystemPrompt = "";
+        _formTempOverride = null;
+        _formMaxTokensOverride = null;
+        _showDialog = true;
+        _hideDialog = false;
+    }
+
+    private void EditConfig(AgentConfig config)
+    {
+        _editingConfig = config;
+        _formDisplayName = config.DisplayName;
+        _formAgentType = config.AgentType;
+        _formModelConfigId = config.ModelConfigId;
+        _formSystemPrompt = config.SystemPromptOverride ?? "";
+        _formTempOverride = config.TemperatureOverride;
+        _formMaxTokensOverride = config.MaxTokensOverride;
+        _showDialog = true;
+        _hideDialog = false;
+    }
+
+    private void SaveConfig()
+    {
+        if (_editingConfig is not null)
+        {
+            _editingConfig.DisplayName = _formDisplayName;
+            _editingConfig.AgentType = _formAgentType;
+            _editingConfig.ModelConfigId = _formModelConfigId;
+            _editingConfig.SystemPromptOverride = string.IsNullOrWhiteSpace(_formSystemPrompt) ? null : _formSystemPrompt;
+            _editingConfig.TemperatureOverride = _formTempOverride;
+            _editingConfig.MaxTokensOverride = _formMaxTokensOverride;
+            AgentFactory.UpdateConfig(_editingConfig);
+        }
+        else
+        {
+            var config = new AgentConfig
+            {
+                DisplayName = _formDisplayName,
+                AgentType = _formAgentType,
+                ModelConfigId = _formModelConfigId,
+                SystemPromptOverride = string.IsNullOrWhiteSpace(_formSystemPrompt) ? null : _formSystemPrompt,
+                TemperatureOverride = _formTempOverride,
+                MaxTokensOverride = _formMaxTokensOverride
+            };
+            AgentFactory.AddConfig(config);
+        }
+
+        _configs = AgentFactory.GetConfigs().ToList();
+        CloseDialog();
+    }
+
+    private void DeleteConfig(string id)
+    {
+        AgentFactory.RemoveConfig(id);
+        _configs = AgentFactory.GetConfigs().ToList();
+    }
+
+    private void TestAgent(AgentConfig config)
+    {
+        Navigation.NavigateTo($"/playground?agentId={config.Id}");
+    }
+
+    private void CloseDialog()
+    {
+        _showDialog = false;
+        _hideDialog = true;
+    }
+}

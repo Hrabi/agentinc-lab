@@ -1,0 +1,123 @@
+@page "/export"
+
+<PageTitle>AgenticLab — Export &amp; Convert</PageTitle>
+
+<div class="section-header">
+    <h1>Export &amp; Convert</h1>
+</div>
+
+<p>Use an agent to extract or transform data, then export results in different formats. Agents can convert unstructured text into structured data based on your instructions.</p>
+
+<FluentStack Orientation="Orientation.Vertical" Style="gap: 16px;">
+    <FluentSelect TOption="string" @bind-Value="_selectedAgentId" Label="Agent" Style="min-width: 300px;">
+        <FluentOption TOption="string" Value="">— Choose an agent —</FluentOption>
+        @foreach (var agent in _agents)
+        {
+            <FluentOption TOption="string" Value="@agent.Id">@agent.DisplayName</FluentOption>
+        }
+    </FluentSelect>
+
+    <FluentTextArea @bind-Value="_inputText" Label="Input Data" Rows="6" Style="width: 100%;"
+        Placeholder="Paste text data here for the agent to process..." />
+
+    <FluentTextArea @bind-Value="_instructions" Label="Instructions" Rows="2" Style="width: 100%;"
+        Placeholder="Extract the names and emails as a JSON array..." />
+
+    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px;">
+        <FluentButton Appearance="Appearance.Accent" OnClick="ProcessData"
+            Disabled="@(string.IsNullOrWhiteSpace(_inputText) || string.IsNullOrWhiteSpace(_selectedAgentId) || _isProcessing)">
+            <FluentIcon Value="@(new Size16.Play())" Slot="start" />
+            Process
+        </FluentButton>
+    </FluentStack>
+
+    @if (_isProcessing)
+    {
+        <FluentProgress />
+    }
+
+    @if (_rawOutput is not null)
+    {
+        <h3>Agent Output</h3>
+        <div class="code-block" style="max-height: 300px; overflow-y: auto;">@_rawOutput</div>
+
+        <h3 style="margin-top: 16px;">Export</h3>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px;">
+            <FluentButton Appearance="Appearance.Outline" OnClick="@(() => ExportAs(ExportFormat.Json))">
+                Export as JSON
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Outline" OnClick="@(() => ExportAs(ExportFormat.Csv))">
+                Export as CSV
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Outline" OnClick="@(() => ExportAs(ExportFormat.Markdown))">
+                Export as Markdown
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Outline" OnClick="@(() => ExportAs(ExportFormat.PlainText))">
+                Export as Plain Text
+            </FluentButton>
+        </FluentStack>
+
+        @if (_exportedOutput is not null)
+        {
+            <h4>Exported (@_exportFormat)</h4>
+            <div class="code-block" style="max-height: 300px; overflow-y: auto;">@_exportedOutput</div>
+        }
+    }
+</FluentStack>
+
+@code {
+    [Inject] private AgentFactoryService AgentFactory { get; set; } = default!;
+    [Inject] private ChatService Chat { get; set; } = default!;
+    [Inject] private ExportService ExportSvc { get; set; } = default!;
+
+    private List<AgentConfig> _agents = [];
+    private string _selectedAgentId = "";
+    private string _inputText = "";
+    private string _instructions = "";
+    private string? _rawOutput;
+    private string? _exportedOutput;
+    private string? _exportFormat;
+    private bool _isProcessing;
+
+    protected override void OnInitialized()
+    {
+        _agents = AgentFactory.GetConfigs().ToList();
+    }
+
+    private async Task ProcessData()
+    {
+        if (string.IsNullOrWhiteSpace(_inputText) || string.IsNullOrWhiteSpace(_selectedAgentId))
+            return;
+
+        _isProcessing = true;
+        _rawOutput = null;
+        _exportedOutput = null;
+        StateHasChanged();
+
+        try
+        {
+            var session = Chat.CreateSession(_selectedAgentId);
+            var prompt = string.IsNullOrWhiteSpace(_instructions)
+                ? _inputText
+                : $"{_instructions}\n\n---\n\n{_inputText}";
+
+            var result = await Chat.SendMessageAsync(session.Id, prompt);
+            _rawOutput = result.Content;
+        }
+        catch (Exception ex)
+        {
+            _rawOutput = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private void ExportAs(ExportFormat format)
+    {
+        if (_rawOutput is null) return;
+        _exportFormat = format.ToString();
+        _exportedOutput = ExportSvc.Export(_rawOutput, format);
+    }
+}

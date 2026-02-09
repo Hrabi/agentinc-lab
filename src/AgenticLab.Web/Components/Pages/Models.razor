@@ -1,0 +1,246 @@
+@page "/models"
+
+<PageTitle>AgenticLab — Models</PageTitle>
+
+<div class="section-header">
+    <h1>Model Configuration</h1>
+</div>
+
+<p>Configure LLM model backends and their parameters. Each configuration defines how a model will behave when used by an agent.</p>
+
+<FluentToolbar Style="margin-bottom: 16px;">
+    <FluentButton Appearance="Appearance.Accent" OnClick="ShowAddDialog">
+        <FluentIcon Value="@(new Size16.Add())" Slot="start" />
+        Add Model Config
+    </FluentButton>
+    <FluentButton Appearance="Appearance.Outline" OnClick="RefreshModels">
+        <FluentIcon Value="@(new Size16.ArrowSync())" Slot="start" />
+        Refresh Ollama Models
+    </FluentButton>
+</FluentToolbar>
+
+@if (_configs.Count == 0)
+{
+    <FluentCard>
+        <p>No model configurations yet. Click "Add Model Config" to create one.</p>
+    </FluentCard>
+}
+else
+{
+    <FluentDataGrid Items="@_configs.AsQueryable()" Style="width: 100%;">
+        <PropertyColumn Property="@(c => c.DisplayName)" Title="Name" />
+        <PropertyColumn Property="@(c => c.ModelName)" Title="Model" />
+        <PropertyColumn Property="@(c => c.Provider)" Title="Provider" />
+        <PropertyColumn Property="@(c => c.Temperature)" Title="Temperature" Format="F2" />
+        <PropertyColumn Property="@(c => c.MaxTokens)" Title="Max Tokens" />
+        <TemplateColumn Title="Status">
+            <span class="status-dot @(context.IsActive ? "online" : "offline")"></span>
+            @(context.IsActive ? "Active" : "Inactive")
+        </TemplateColumn>
+        <TemplateColumn Title="Actions">
+            <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => EditConfig(context))">
+                <FluentIcon Value="@(new Size16.Edit())" />
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => DeleteConfig(context.Id))">
+                <FluentIcon Value="@(new Size16.Delete())" />
+            </FluentButton>
+        </TemplateColumn>
+    </FluentDataGrid>
+}
+
+<h2 style="margin-top: 32px;">Parameter Reference</h2>
+
+<FluentAccordion>
+    <FluentAccordionItem Heading="Temperature">
+        <p><strong>Range:</strong> 0.0 to 2.0 (typically 0.0 - 1.0)</p>
+        <p>Controls randomness in the model's output. Lower values make output more deterministic and focused; higher values make it more creative and varied.</p>
+        <ul>
+            <li><strong>0.0:</strong> Deterministic — always picks the most likely token. Best for factual Q&A, data extraction.</li>
+            <li><strong>0.3-0.5:</strong> Balanced — slightly varied but still focused. Good for code generation.</li>
+            <li><strong>0.7:</strong> Default — good mix of coherence and creativity. General-purpose.</li>
+            <li><strong>1.0+:</strong> Creative — more surprising outputs. Good for creative writing, brainstorming.</li>
+        </ul>
+    </FluentAccordionItem>
+    <FluentAccordionItem Heading="Max Tokens">
+        <p><strong>Range:</strong> 1 to model's context window (varies by model)</p>
+        <p>The maximum number of tokens the model will generate in its response. One token is roughly 3/4 of a word in English.</p>
+        <ul>
+            <li><strong>100-200:</strong> Short answers, classifications, yes/no.</li>
+            <li><strong>500-1000:</strong> Moderate responses — explanations, summaries.</li>
+            <li><strong>2000-4000:</strong> Long-form content — articles, detailed code.</li>
+        </ul>
+    </FluentAccordionItem>
+    <FluentAccordionItem Heading="System Prompt">
+        <p>An instruction that sets the model's behavior, persona, and constraints. Applied before the user's message.</p>
+        <p>Examples:</p>
+        <div class="code-block">You are a helpful assistant. Answer questions clearly and concisely.</div>
+        <div class="code-block" style="margin-top: 8px;">You are a senior C# developer. Always use .NET 10 best practices, async/await patterns, and include XML doc comments.</div>
+    </FluentAccordionItem>
+    <FluentAccordionItem Heading="Model Selection Guide">
+        <p>Choosing the right model depends on your task and hardware:</p>
+        <ul>
+            <li><strong>llama3.2 (3B):</strong> Fast, lightweight. Good for simple Q&A and quick prototyping.</li>
+            <li><strong>qwen2.5:14b:</strong> Recommended dev model. Excellent reasoning, code generation, multilingual.</li>
+            <li><strong>gemma3 (4B):</strong> Fast utility model. Good for classification and simple tasks.</li>
+            <li><strong>phi4-mini:</strong> Small language model from Microsoft. Efficient for structured tasks.</li>
+        </ul>
+    </FluentAccordionItem>
+</FluentAccordion>
+
+@if (_showDialog)
+{
+    <FluentDialog @bind-Hidden="@_hideDialog" Modal="true" TrapFocus="true" Style="min-width: 500px;" @ondialogdismiss="CloseDialog">
+        <FluentDialogHeader>
+            @(_editingConfig is null ? "Add Model Configuration" : "Edit Model Configuration")
+        </FluentDialogHeader>
+        <FluentDialogBody>
+            <FluentStack Orientation="Orientation.Vertical" Style="gap: 12px;">
+                <FluentTextField @bind-Value="_formDisplayName" Label="Display Name" Placeholder="My Model Config" Style="width: 100%;" />
+                
+                <FluentSelect TOption="string" @bind-Value="_formProvider" Label="Provider" Style="width: 100%;">
+                    <FluentOption TOption="string" Value="ollama">Ollama (Local)</FluentOption>
+                </FluentSelect>
+
+                @if (_availableModels.Count > 0)
+                {
+                    <FluentSelect TOption="string" @bind-Value="_formModelName" Label="Model" Style="width: 100%;">
+                        @foreach (var model in _availableModels)
+                        {
+                            <FluentOption TOption="string" Value="@model.Name">@model.Name (@model.ParameterSize, @model.FormattedSize)</FluentOption>
+                        }
+                    </FluentSelect>
+                }
+                else
+                {
+                    <FluentTextField @bind-Value="_formModelName" Label="Model Name" Placeholder="llama3.2" Style="width: 100%;" />
+                }
+
+                <FluentTextField @bind-Value="_formEndpoint" Label="Endpoint" Placeholder="http://localhost:11434" Style="width: 100%;" />
+
+                <div>
+                    <FluentSlider @bind-Value="_formTemperature" Min="0" Max="2" Step="0.1" Label="Temperature" Style="width: 100%;" />
+                    <div class="param-info">Current: @_formTemperature.ToString("F1") — @TemperatureDescription(_formTemperature)</div>
+                </div>
+
+                <FluentNumberField @bind-Value="_formMaxTokens" Label="Max Tokens" Min="50" Max="32000" Step="100" Style="width: 100%;" />
+
+                <FluentTextArea @bind-Value="_formSystemPrompt" Label="System Prompt" Rows="3" Style="width: 100%;" Placeholder="You are a helpful assistant." />
+            </FluentStack>
+        </FluentDialogBody>
+        <FluentDialogFooter>
+            <FluentButton Appearance="Appearance.Accent" OnClick="SaveConfig">Save</FluentButton>
+            <FluentButton Appearance="Appearance.Neutral" OnClick="CloseDialog">Cancel</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+}
+
+@code {
+    [Inject] private ModelRegistryService ModelRegistry { get; set; } = default!;
+
+    private List<ModelConfig> _configs = [];
+    private List<OllamaModelInfo> _availableModels = [];
+    private bool _showDialog;
+    private bool _hideDialog = true;
+    private ModelConfig? _editingConfig;
+
+    // Form fields
+    private string _formDisplayName = "";
+    private string _formProvider = "ollama";
+    private string _formModelName = "llama3.2";
+    private string _formEndpoint = "http://localhost:11434";
+    private double _formTemperature = 0.7;
+    private int _formMaxTokens = 1000;
+    private string _formSystemPrompt = "You are a helpful assistant.";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _configs = ModelRegistry.GetConfigs().ToList();
+        _availableModels = await ModelRegistry.GetAvailableModelsAsync();
+    }
+
+    private void ShowAddDialog()
+    {
+        _editingConfig = null;
+        _formDisplayName = "";
+        _formProvider = "ollama";
+        _formModelName = _availableModels.Count > 0 ? _availableModels[0].Name : "llama3.2";
+        _formEndpoint = "http://localhost:11434";
+        _formTemperature = 0.7;
+        _formMaxTokens = 1000;
+        _formSystemPrompt = "You are a helpful assistant.";
+        _showDialog = true;
+        _hideDialog = false;
+    }
+
+    private void EditConfig(ModelConfig config)
+    {
+        _editingConfig = config;
+        _formDisplayName = config.DisplayName;
+        _formProvider = config.Provider;
+        _formModelName = config.ModelName;
+        _formEndpoint = config.Endpoint;
+        _formTemperature = config.Temperature;
+        _formMaxTokens = config.MaxTokens;
+        _formSystemPrompt = config.SystemPrompt;
+        _showDialog = true;
+        _hideDialog = false;
+    }
+
+    private void SaveConfig()
+    {
+        if (_editingConfig is not null)
+        {
+            _editingConfig.DisplayName = _formDisplayName;
+            _editingConfig.Provider = _formProvider;
+            _editingConfig.ModelName = _formModelName;
+            _editingConfig.Endpoint = _formEndpoint;
+            _editingConfig.Temperature = _formTemperature;
+            _editingConfig.MaxTokens = _formMaxTokens;
+            _editingConfig.SystemPrompt = _formSystemPrompt;
+            ModelRegistry.UpdateConfig(_editingConfig);
+        }
+        else
+        {
+            var config = new ModelConfig
+            {
+                DisplayName = _formDisplayName,
+                Provider = _formProvider,
+                ModelName = _formModelName,
+                Endpoint = _formEndpoint,
+                Temperature = _formTemperature,
+                MaxTokens = _formMaxTokens,
+                SystemPrompt = _formSystemPrompt
+            };
+            ModelRegistry.AddConfig(config);
+        }
+
+        _configs = ModelRegistry.GetConfigs().ToList();
+        CloseDialog();
+    }
+
+    private void DeleteConfig(string id)
+    {
+        ModelRegistry.RemoveConfig(id);
+        _configs = ModelRegistry.GetConfigs().ToList();
+    }
+
+    private async Task RefreshModels()
+    {
+        _availableModels = await ModelRegistry.GetAvailableModelsAsync();
+    }
+
+    private void CloseDialog()
+    {
+        _showDialog = false;
+        _hideDialog = true;
+    }
+
+    private static string TemperatureDescription(double temp) => temp switch
+    {
+        <= 0.1 => "Deterministic",
+        <= 0.4 => "Focused",
+        <= 0.7 => "Balanced",
+        <= 1.0 => "Creative",
+        _ => "Very Creative"
+    };
+}

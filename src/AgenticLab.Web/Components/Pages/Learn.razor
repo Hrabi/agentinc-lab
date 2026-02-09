@@ -1,0 +1,204 @@
+@page "/learn"
+
+<PageTitle>AgenticLab — Learn</PageTitle>
+
+<div class="section-header">
+    <h1>Learn: Building Agentic AI Systems</h1>
+</div>
+
+<p>A developer's guide to understanding and building agentic AI systems with AgenticLab.</p>
+
+<FluentAccordion>
+    <FluentAccordionItem Heading="1. What is an Agentic AI System?">
+        <p>An <strong>agentic AI system</strong> is one where an AI model (LLM) acts autonomously to accomplish tasks. Instead of just answering questions, the agent can:</p>
+        <ul>
+            <li>Break down complex tasks into steps</li>
+            <li>Use tools to gather information or take actions</li>
+            <li>Maintain context across a conversation</li>
+            <li>Route work to specialized sub-agents</li>
+        </ul>
+        <p>AgenticLab's architecture separates concerns into <strong>Agents</strong> (task orchestrators), <strong>Models</strong> (LLM backends), and <strong>Tools</strong> (action executors).</p>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="2. Architecture Overview">
+        <div class="code-block">
+┌──────────────────────────────────────────────────────────┐
+│                     AgentRuntime                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐               │
+│  │  Agent A  │  │  Agent B  │  │  Agent C  │   ...        │
+│  │ (Q&amp;A)    │  │ (Extract) │  │ (Code)   │               │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘               │
+│       │              │              │                     │
+│  ┌────▼──────────────▼──────────────▼──────┐             │
+│  │              IModel (LLM)               │             │
+│  │  ┌─────────┐  ┌──────────┐              │             │
+│  │  │ Ollama  │  │ Azure AI │  ...         │             │
+│  │  │ (local) │  │ (cloud)  │              │             │
+│  │  └─────────┘  └──────────┘              │             │
+│  └─────────────────────────────────────────┘             │
+│       │                                                   │
+│  ┌────▼──────────────────────────────────┐               │
+│  │              ITool (Actions)           │               │
+│  │  ┌──────┐  ┌───────┐  ┌──────────┐   │               │
+│  │  │ File │  │ HTTP  │  │ Database │   │               │
+│  │  └──────┘  └───────┘  └──────────┘   │               │
+│  └───────────────────────────────────────┘               │
+└──────────────────────────────────────────────────────────┘
+        </div>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="3. Setting Up a Model">
+        <p>Models are LLM backends that generate text. AgenticLab supports Ollama for local execution:</p>
+        <div class="code-block">// 1. Install Ollama: https://ollama.com
+// 2. Pull a model:
+//    ollama pull llama3.2
+
+// 3. In code, create an OllamaModel:
+var model = new OllamaModel(
+    endpoint: "http://localhost:11434",
+    modelName: "llama3.2",
+    logger: logger);
+
+// 4. Generate a response:
+var response = await model.GenerateAsync(new ModelRequest
+{
+    Prompt = "What is dependency injection?",
+    SystemPrompt = "You are a .NET expert.",
+    Temperature = 0.7,
+    MaxTokens = 500
+});</div>
+        <h4>Key Parameters</h4>
+        <ul>
+            <li><strong>Temperature</strong> — Controls randomness. 0 = deterministic, 1 = creative.</li>
+            <li><strong>MaxTokens</strong> — Limits response length. 1 token ≈ ¾ word.</li>
+            <li><strong>SystemPrompt</strong> — Sets the model's persona and constraints.</li>
+        </ul>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="4. Creating an Agent">
+        <p>Agents implement the <code>IAgent</code> interface and use a model to process requests:</p>
+        <div class="code-block">public class MyAgent : IAgent
+{
+    private readonly IModel _model;
+
+    public string Name => "MyAgent";
+    public string Description => "Does something specific.";
+
+    public MyAgent(IModel model) => _model = model;
+
+    public async Task&lt;AgentResponse&gt; ProcessAsync(
+        AgentRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var modelRequest = new ModelRequest
+        {
+            Prompt = request.Message,
+            SystemPrompt = "Your specialist system prompt here.",
+            MaxTokens = 500,
+            Temperature = 0.7
+        };
+
+        var response = await _model.GenerateAsync(
+            modelRequest, cancellationToken);
+
+        return new AgentResponse
+        {
+            AgentName = Name,
+            Message = response.Text,
+            Success = true,
+            Metadata = new Dictionary&lt;string, object&gt;
+            {
+                ["model"] = response.ModelName ?? "unknown",
+                ["promptTokens"] = response.PromptTokens,
+                ["completionTokens"] = response.CompletionTokens
+            }
+        };
+    }
+}</div>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="5. Agent Runtime &amp; Orchestration">
+        <p>The <code>AgentRuntime</code> manages agent registration and request routing:</p>
+        <div class="code-block">// Register agents
+var runtime = new AgentRuntime(logger);
+runtime.RegisterAgent(new MyAgent(model));
+runtime.RegisterAgent(new DataExtractorAgent(model));
+
+// Send a request to a specific agent
+var response = await runtime.SendAsync("MyAgent",
+    new AgentRequest { Message = "Hello!" });</div>
+        <p>In a production system, you can implement <code>IModelRouter</code> to automatically route requests to the best model based on task type, cost, or latency requirements.</p>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="6. Building Agent Workflows">
+        <p>Complex tasks can be decomposed into multi-step workflows:</p>
+        <ol>
+            <li><strong>Input Processing</strong> — Parse and validate user input</li>
+            <li><strong>Planning</strong> — Agent determines which steps to take</li>
+            <li><strong>Execution</strong> — Steps run sequentially or in parallel</li>
+            <li><strong>Tool Usage</strong> — Agent calls tools for external actions</li>
+            <li><strong>Aggregation</strong> — Results are combined into a final response</li>
+        </ol>
+        <div class="code-block">// Example: Data extraction workflow
+// Step 1: Extract key entities
+var entities = await extractorAgent.ProcessAsync(
+    new AgentRequest { Message = rawText });
+
+// Step 2: Classify each entity
+var classified = await classifierAgent.ProcessAsync(
+    new AgentRequest { Message = entities.Message });
+
+// Step 3: Format as structured output
+var formatted = await formatterAgent.ProcessAsync(
+    new AgentRequest { Message = classified.Message });</div>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="7. RAG (Retrieval-Augmented Generation)">
+        <p>RAG combines a retrieval system with an LLM for grounded, accurate answers:</p>
+        <ol>
+            <li><strong>Index</strong> — Embed documents into a vector database using an embedding model</li>
+            <li><strong>Retrieve</strong> — When a query arrives, find the most similar documents</li>
+            <li><strong>Generate</strong> — Pass retrieved documents + query to the LLM for an answer</li>
+        </ol>
+        <div class="code-block">// Planned RAG pipeline:
+// 1. Embed documents using nomic-embed-text (via Ollama)
+// 2. Store embeddings in a vector database
+// 3. On query: find top-K similar chunks
+// 4. Build prompt: system + context chunks + user query
+// 5. Generate response with citation links</div>
+        <p><em>RAG support is planned for a future release.</em></p>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="8. Comparing Models &amp; Configurations">
+        <p>Use the <FluentAnchor Href="/compare">Compare</FluentAnchor> page to:</p>
+        <ul>
+            <li>Run the same prompt against multiple model/agent combinations</li>
+            <li>Compare response quality, speed, and token usage</li>
+            <li>Find the best configuration for your use case</li>
+            <li>Test how temperature affects creativity vs accuracy</li>
+        </ul>
+        <p>Tip: Create multiple agent configs with the same model but different temperatures, then compare their outputs on the same prompt.</p>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="9. Local Storage &amp; Data Access">
+        <p>Agents can access local data through tools:</p>
+        <ul>
+            <li><strong>File system access</strong> — Read/write local files for data import/export</li>
+            <li><strong>Vector database</strong> — Store and search document embeddings locally</li>
+            <li><strong>Configuration</strong> — Load settings from <code>appsettings.json</code></li>
+        </ul>
+        <p>All processing stays on your machine — no data leaves your network unless you explicitly configure a cloud model.</p>
+    </FluentAccordionItem>
+
+    <FluentAccordionItem Heading="10. Project Structure">
+        <div class="code-block">AgenticLab.sln
+├── AgenticLab.Core          → Abstractions (IAgent, IModel, ITool)
+├── AgenticLab.Runtime       → Agent orchestration engine
+├── AgenticLab.Models        → LLM adapters (Ollama, Azure OpenAI)
+├── AgenticLab.Agents        → Agent implementations
+├── AgenticLab.Web           → Blazor Web App (this UI)
+├── AgenticLab.AppHost       → .NET Aspire orchestration
+├── AgenticLab.ServiceDefaults → Shared infrastructure
+└── AgenticLab.Demos         → Console demo (original)</div>
+    </FluentAccordionItem>
+</FluentAccordion>

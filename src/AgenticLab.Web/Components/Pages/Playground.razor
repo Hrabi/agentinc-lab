@@ -1,0 +1,188 @@
+@page "/playground"
+
+<PageTitle>AgenticLab — Playground</PageTitle>
+
+<div class="section-header">
+    <h1>Playground</h1>
+</div>
+
+<p>Interactive chat with your configured agents. Select an agent and start a conversation.</p>
+
+<FluentStack Orientation="Orientation.Horizontal" Style="gap: 16px; margin-bottom: 16px;">
+    <FluentSelect TOption="string" @bind-Value="_selectedAgentId" Label="Select Agent" Style="min-width: 300px;"
+        @oninput="OnAgentChanged">
+        <FluentOption TOption="string" Value="">— Choose an agent —</FluentOption>
+        @foreach (var agent in _agents)
+        {
+            <FluentOption TOption="string" Value="@agent.Id">@agent.DisplayName (@agent.AgentType)</FluentOption>
+        }
+    </FluentSelect>
+
+    <FluentButton Appearance="Appearance.Outline" OnClick="NewSession" Disabled="@(string.IsNullOrEmpty(_selectedAgentId))">
+        <FluentIcon Value="@(new Size16.Add())" Slot="start" />
+        New Session
+    </FluentButton>
+
+    <FluentButton Appearance="Appearance.Outline" OnClick="ClearChat" Disabled="@(_session is null)">
+        <FluentIcon Value="@(new Size16.Delete())" Slot="start" />
+        Clear Chat
+    </FluentButton>
+</FluentStack>
+
+@if (_selectedAgentConfig is not null)
+{
+    var modelConfig = ModelRegistry.GetConfig(_selectedAgentConfig.ModelConfigId);
+    <FluentCard Style="margin-bottom: 16px; padding: 12px;">
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 24px;" Wrap="true">
+            <div><strong>Model:</strong> @(modelConfig?.ModelName ?? "Unknown")</div>
+            <div><strong>Temperature:</strong> @((_selectedAgentConfig.TemperatureOverride ?? modelConfig?.Temperature ?? 0.7).ToString("F1"))</div>
+            <div><strong>Max Tokens:</strong> @(_selectedAgentConfig.MaxTokensOverride ?? modelConfig?.MaxTokens ?? 1000)</div>
+            <div><strong>Type:</strong> @_selectedAgentConfig.AgentType</div>
+        </FluentStack>
+    </FluentCard>
+}
+
+<div class="chat-container">
+    <div class="chat-messages">
+        @if (_session is null)
+        {
+            <FluentCard Style="text-align: center; padding: 48px;">
+                <h3>Select an agent and start chatting</h3>
+                <p>Or try a demo example from the <FluentAnchor Href="/examples">Examples</FluentAnchor> page.</p>
+            </FluentCard>
+        }
+        else if (_session.Entries.Count == 0)
+        {
+            <FluentCard Style="text-align: center; padding: 48px;">
+                <h3>Session started — type a message below</h3>
+            </FluentCard>
+        }
+        else
+        {
+            @foreach (var entry in _session.Entries)
+            {
+                <div class="chat-message @entry.Role">
+                    <div>@entry.Content</div>
+                    @if (entry.Role == "assistant")
+                    {
+                        <div class="meta">
+                            @entry.AgentName · @(entry.ModelName ?? "unknown") · @(entry.DurationMs)ms ·
+                            @(entry.PromptTokens + entry.CompletionTokens) tokens
+                            @if (!entry.Success) { <span style="color: var(--error);"> (failed)</span> }
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_isProcessing)
+            {
+                <div class="chat-message assistant">
+                    <FluentProgressRing Style="width: 20px; height: 20px;" />
+                    <span style="margin-left: 8px;">Thinking...</span>
+                </div>
+            }
+        }
+    </div>
+
+    <div class="chat-input-area">
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px;">
+            <FluentTextArea @bind-Value="_userInput" Placeholder="Type your message..." Rows="2" Style="flex: 1;"
+                @onkeydown="HandleKeyDown" Disabled="@(_session is null || _isProcessing)" />
+            <FluentButton Appearance="Appearance.Accent" OnClick="SendMessage"
+                Disabled="@(string.IsNullOrWhiteSpace(_userInput) || _isProcessing || _session is null)"
+                Style="align-self: flex-end;">
+                <FluentIcon Value="@(new Size16.Send())" />
+            </FluentButton>
+        </FluentStack>
+    </div>
+</div>
+
+@code {
+    [Inject] private AgentFactoryService AgentFactory { get; set; } = default!;
+    [Inject] private ModelRegistryService ModelRegistry { get; set; } = default!;
+    [Inject] private ChatService Chat { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    [SupplyParameterFromQuery(Name = "agentId")]
+    public string? InitialAgentId { get; set; }
+
+    private List<AgentConfig> _agents = [];
+    private string _selectedAgentId = "";
+    private AgentConfig? _selectedAgentConfig;
+    private ChatSession? _session;
+    private string _userInput = "";
+    private bool _isProcessing;
+
+    protected override void OnInitialized()
+    {
+        _agents = AgentFactory.GetConfigs().ToList();
+
+        if (!string.IsNullOrEmpty(InitialAgentId) && _agents.Any(a => a.Id == InitialAgentId))
+        {
+            _selectedAgentId = InitialAgentId;
+            _selectedAgentConfig = AgentFactory.GetConfig(InitialAgentId);
+            _session = Chat.CreateSession(InitialAgentId);
+        }
+    }
+
+    private void OnAgentChanged(ChangeEventArgs e)
+    {
+        _selectedAgentId = e.Value?.ToString() ?? "";
+        _selectedAgentConfig = !string.IsNullOrEmpty(_selectedAgentId) ? AgentFactory.GetConfig(_selectedAgentId) : null;
+        _session = null;
+    }
+
+    private void NewSession()
+    {
+        if (!string.IsNullOrEmpty(_selectedAgentId))
+        {
+            _selectedAgentConfig = AgentFactory.GetConfig(_selectedAgentId);
+            _session = Chat.CreateSession(_selectedAgentId);
+        }
+    }
+
+    private void ClearChat()
+    {
+        if (_session is not null)
+        {
+            Chat.ClearSession(_session.Id);
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e is { Key: "Enter", CtrlKey: true })
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(_userInput) || _session is null || _isProcessing)
+            return;
+
+        var message = _userInput.Trim();
+        _userInput = "";
+        _isProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            await Chat.SendMessageAsync(_session.Id, message);
+        }
+        catch (Exception ex)
+        {
+            _session.Entries.Add(new ChatEntry
+            {
+                Role = "assistant",
+                Content = $"Error: {ex.Message}",
+                Success = false
+            });
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+}

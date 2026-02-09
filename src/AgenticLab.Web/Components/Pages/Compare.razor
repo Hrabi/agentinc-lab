@@ -1,0 +1,162 @@
+@page "/compare"
+
+<PageTitle>AgenticLab — Compare</PageTitle>
+
+<div class="section-header">
+    <h1>Compare Agents</h1>
+</div>
+
+<p>Run the same prompt across multiple agent configurations and compare responses side-by-side. Great for evaluating how different models and parameters affect output quality.</p>
+
+<FluentStack Orientation="Orientation.Vertical" Style="gap: 16px; margin-bottom: 24px;">
+    <FluentTextArea @bind-Value="_prompt" Label="Prompt" Rows="3" Style="width: 100%;"
+        Placeholder="Enter a prompt to test across selected agents..." />
+
+    <div>
+        <label style="font-weight: 600; margin-bottom: 8px; display: block;">Select Agents to Compare:</label>
+        <FluentStack Orientation="Orientation.Horizontal" Wrap="true" Style="gap: 8px;">
+            @foreach (var agent in _agents)
+            {
+                var isSelected = _selectedAgentIds.Contains(agent.Id);
+                <FluentBadge Appearance="@(isSelected ? Appearance.Accent : Appearance.Neutral)"
+                    Style="cursor: pointer; padding: 8px 12px;"
+                    OnClick="@(() => ToggleAgent(agent.Id))">
+                    @agent.DisplayName
+                </FluentBadge>
+            }
+        </FluentStack>
+    </div>
+
+    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px;">
+        <FluentButton Appearance="Appearance.Accent" OnClick="RunComparison"
+            Disabled="@(string.IsNullOrWhiteSpace(_prompt) || _selectedAgentIds.Count < 2 || _isRunning)">
+            <FluentIcon Value="@(new Size16.Play())" Slot="start" />
+            Run Comparison
+        </FluentButton>
+        <FluentButton Appearance="Appearance.Outline" OnClick="LoadExample">
+            <FluentIcon Value="@(new Size16.DocumentBulletList())" Slot="start" />
+            Load Example Prompt
+        </FluentButton>
+    </FluentStack>
+</FluentStack>
+
+@if (_isRunning)
+{
+    <FluentCard Style="text-align: center; padding: 48px;">
+        <FluentProgressRing />
+        <p>Running comparison across @_selectedAgentIds.Count agents...</p>
+    </FluentCard>
+}
+
+@if (_result is not null)
+{
+    <h2>Results</h2>
+    <p style="color: var(--neutral-foreground-hint);">Prompt: "@_result.Prompt"</p>
+
+    <div class="compare-grid">
+        @foreach (var entry in _result.Entries)
+        {
+            <FluentCard>
+                <h3>@entry.AgentDisplayName</h3>
+                <div style="margin-bottom: 8px;">
+                    <FluentBadge Appearance="@(entry.Success ? Appearance.Accent : Appearance.Neutral)">
+                        @(entry.Success ? "Success" : "Failed")
+                    </FluentBadge>
+                </div>
+
+                @if (entry.Error is not null)
+                {
+                    <div style="color: var(--error); margin-bottom: 8px;">
+                        Error: @entry.Error
+                    </div>
+                }
+                else
+                {
+                    <div style="white-space: pre-wrap; margin-bottom: 12px; padding: 12px; background: var(--neutral-layer-3); border-radius: 4px; max-height: 400px; overflow-y: auto;">@entry.Response</div>
+                }
+
+                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 16px; font-size: 0.85rem; color: var(--neutral-foreground-hint);">
+                    <div>Model: @(entry.ModelName ?? "?")</div>
+                    <div>Time: @(entry.DurationMs)ms</div>
+                    <div>Tokens: @(entry.PromptTokens + entry.CompletionTokens)</div>
+                </FluentStack>
+            </FluentCard>
+        }
+    </div>
+
+    <h3 style="margin-top: 24px;">Performance Summary</h3>
+    <FluentDataGrid Items="@_result.Entries.AsQueryable()">
+        <PropertyColumn Property="@(e => e.AgentDisplayName)" Title="Agent" />
+        <PropertyColumn Property="@(e => e.ModelName)" Title="Model" />
+        <PropertyColumn Property="@(e => e.DurationMs)" Title="Duration (ms)" />
+        <PropertyColumn Property="@(e => e.PromptTokens)" Title="Prompt Tokens" />
+        <PropertyColumn Property="@(e => e.CompletionTokens)" Title="Completion Tokens" />
+        <TemplateColumn Title="Status">
+            <FluentBadge Appearance="@(context.Success ? Appearance.Accent : Appearance.Neutral)">
+                @(context.Success ? "OK" : "Fail")
+            </FluentBadge>
+        </TemplateColumn>
+    </FluentDataGrid>
+}
+
+@code {
+    [Inject] private AgentFactoryService AgentFactory { get; set; } = default!;
+    [Inject] private CompareService CompareSvc { get; set; } = default!;
+    [Inject] private ExampleService ExampleSvc { get; set; } = default!;
+
+    private List<AgentConfig> _agents = [];
+    private HashSet<string> _selectedAgentIds = [];
+    private string _prompt = "";
+    private bool _isRunning;
+    private CompareResult? _result;
+    private int _exampleIndex;
+
+    protected override void OnInitialized()
+    {
+        _agents = AgentFactory.GetConfigs().ToList();
+    }
+
+    private void ToggleAgent(string id)
+    {
+        if (!_selectedAgentIds.Remove(id))
+        {
+            _selectedAgentIds.Add(id);
+        }
+    }
+
+    private async Task RunComparison()
+    {
+        if (string.IsNullOrWhiteSpace(_prompt) || _selectedAgentIds.Count < 2)
+            return;
+
+        _isRunning = true;
+        _result = null;
+        StateHasChanged();
+
+        try
+        {
+            _result = await CompareSvc.CompareAsync(_prompt, _selectedAgentIds);
+        }
+        catch (Exception ex)
+        {
+            _result = new CompareResult
+            {
+                Prompt = _prompt,
+                Entries = [new CompareEntry { Error = ex.Message, AgentDisplayName = "System" }]
+            };
+        }
+        finally
+        {
+            _isRunning = false;
+        }
+    }
+
+    private void LoadExample()
+    {
+        var examples = ExampleSvc.GetExamples();
+        if (examples.Count == 0) return;
+
+        _prompt = examples[_exampleIndex % examples.Count].Prompt;
+        _exampleIndex++;
+    }
+}

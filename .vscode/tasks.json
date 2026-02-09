@@ -51,6 +51,21 @@
                 "reveal": "always",
                 "panel": "new"
             }
+        },
+        {
+            "label": "run web",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "run",
+                "--project",
+                "${workspaceFolder}/src/AgenticLab.Web"
+            ],
+            "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            }
         }
     ]
 }

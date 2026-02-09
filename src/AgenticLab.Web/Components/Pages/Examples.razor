@@ -1,0 +1,105 @@
+@page "/examples"
+
+<PageTitle>AgenticLab — Examples</PageTitle>
+
+<div class="section-header">
+    <h1>Demo Examples</h1>
+</div>
+
+<p>Built-in scenarios for testing agent capabilities. Click an example to load it into the Playground or Compare view.</p>
+
+<FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; margin-bottom: 24px;">
+    <FluentButton Appearance="@(_selectedCategory is null ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _selectedCategory = null)">
+        All (@_examples.Count)
+    </FluentButton>
+    @foreach (var category in _categories)
+    {
+        var cat = category;
+        <FluentButton Appearance="@(_selectedCategory == cat ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _selectedCategory = cat)">
+            @cat (@_examples.Count(e => e.Category == cat))
+        </FluentButton>
+    }
+</FluentStack>
+
+<FluentStack Orientation="Orientation.Vertical" Style="gap: 16px;">
+    @foreach (var example in FilteredExamples)
+    {
+        <FluentCard Class="example-card">
+            <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; align-items: center; margin-bottom: 8px;">
+                        <h3 style="margin: 0;">@example.Title</h3>
+                        <FluentBadge>@example.Category</FluentBadge>
+                    </FluentStack>
+                    <p style="margin: 4px 0;">@example.Description</p>
+                </div>
+                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 4px;">
+                    <FluentButton Appearance="Appearance.Outline" OnClick="@(() => UseInPlayground(example))">
+                        <FluentIcon Value="@(new Size16.Chat())" Slot="start" />
+                        Playground
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Outline" OnClick="@(() => UseInCompare(example))">
+                        <FluentIcon Value="@(new Size16.DataBarVertical())" Slot="start" />
+                        Compare
+                    </FluentButton>
+                </FluentStack>
+            </FluentStack>
+
+            @if (_expandedId == example.Id)
+            {
+                <div style="margin-top: 16px; border-top: 1px solid var(--neutral-stroke-divider-rest); padding-top: 16px;">
+                    <h4>Prompt</h4>
+                    <div class="code-block">@example.Prompt</div>
+
+                    <h4 style="margin-top: 12px;">Expected Behavior</h4>
+                    <p>@example.ExpectedBehavior</p>
+
+                    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 4px; margin-top: 8px;">
+                        @foreach (var tag in example.Tags)
+                        {
+                            <FluentBadge Appearance="Appearance.Neutral">@tag</FluentBadge>
+                        }
+                    </FluentStack>
+                </div>
+            }
+
+            <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => ToggleExpand(example.Id))" Style="margin-top: 8px;">
+                @(_expandedId == example.Id ? "Hide Details" : "Show Details")
+            </FluentButton>
+        </FluentCard>
+    }
+</FluentStack>
+
+@code {
+    [Inject] private ExampleService ExampleSvc { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private List<DemoExample> _examples = [];
+    private List<string> _categories = [];
+    private string? _selectedCategory;
+    private string? _expandedId;
+
+    private IEnumerable<DemoExample> FilteredExamples =>
+        _selectedCategory is null ? _examples : _examples.Where(e => e.Category == _selectedCategory);
+
+    protected override void OnInitialized()
+    {
+        _examples = ExampleSvc.GetExamples().ToList();
+        _categories = ExampleSvc.GetCategories().ToList();
+    }
+
+    private void ToggleExpand(string id)
+    {
+        _expandedId = _expandedId == id ? null : id;
+    }
+
+    private void UseInPlayground(DemoExample example)
+    {
+        Navigation.NavigateTo($"/playground");
+    }
+
+    private void UseInCompare(DemoExample example)
+    {
+        Navigation.NavigateTo($"/compare");
+    }
+}

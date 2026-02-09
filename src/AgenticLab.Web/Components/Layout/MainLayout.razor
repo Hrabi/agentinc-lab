@@ -1,0 +1,58 @@
+@inherits LayoutComponentBase
+
+<FluentLayout>
+    <FluentHeader>
+        AgenticLab
+    </FluentHeader>
+
+    <FluentStack Orientation="Orientation.Horizontal" Style="height: calc(100vh - 100px);">
+        <FluentNavMenu Width="280" Title="Navigation">
+            <FluentNavLink Href="/" Icon="@(new Size20.Home())" Match="NavLinkMatch.All">
+                Dashboard
+            </FluentNavLink>
+            <FluentNavGroup Title="Configuration" Icon="@(new Size20.Settings())">
+                <FluentNavLink Href="/models" Icon="@(new Size20.BrainCircuit())">
+                    Models
+                </FluentNavLink>
+                <FluentNavLink Href="/agents" Icon="@(new Size20.Bot())">
+                    Agents
+                </FluentNavLink>
+            </FluentNavGroup>
+            <FluentNavGroup Title="Testing" Icon="@(new Size20.PlayCircle())">
+                <FluentNavLink Href="/playground" Icon="@(new Size20.Chat())">
+                    Playground
+                </FluentNavLink>
+                <FluentNavLink Href="/compare" Icon="@(new Size20.DataBarVertical())">
+                    Compare
+                </FluentNavLink>
+                <FluentNavLink Href="/examples" Icon="@(new Size20.DocumentBulletList())">
+                    Examples
+                </FluentNavLink>
+            </FluentNavGroup>
+            <FluentNavGroup Title="Data" Icon="@(new Size20.Database())">
+                <FluentNavLink Href="/export" Icon="@(new Size20.ArrowExportUp())">
+                    Export &amp; Convert
+                </FluentNavLink>
+            </FluentNavGroup>
+            <FluentNavLink Href="/learn" Icon="@(new Size20.BookOpen())">
+                Learn
+            </FluentNavLink>
+        </FluentNavMenu>
+
+        <FluentBodyContent Style="flex: 1; overflow-y: auto; padding: 24px;">
+            <FluentMessageBarProvider Section="MESSAGES_TOP" />
+            @Body
+        </FluentBodyContent>
+    </FluentStack>
+
+    <FluentFooter>
+        <div style="text-align: center; width: 100%; font-size: 0.8rem; opacity: 0.6;">
+            AgenticLab &mdash; Local-first Agentic AI Workbench &mdash; .NET 10
+        </div>
+    </FluentFooter>
+</FluentLayout>
+
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
