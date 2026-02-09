@@ -49,7 +49,7 @@ The local agentic architecture runs all components on a single machine:
 
 | Provider | Model Format | Notes |
 |----------|-------------|-------|
-| **Ollama** | GGUF | Easy setup, REST API, many models |
+| **Ollama** | GGUF, Safetensors | Easy setup, REST API, Modelfile customization, 162k+ GitHub stars |
 | **ONNX Runtime** | ONNX | Optimized for .NET, GPU support |
 | **Docker + vLLM** | Various | Production-grade serving |
 | **LM Studio** | GGUF | GUI-based, easy experimentation |

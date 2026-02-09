@@ -87,7 +87,7 @@ agenticlab/
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - [Visual Studio Code](https://code.visualstudio.com/) with C# Dev Kit
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for local LLMs)
-- [Ollama](https://ollama.com/) (optional, for local model execution)
+- [Ollama](https://ollama.com/) (v0.15.6, for local model execution)
 
 ### Clone and Build
 

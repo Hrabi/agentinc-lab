@@ -37,7 +37,7 @@ A design pattern where components receive their dependencies from external confi
 ## G
 
 ### GGUF
-A file format for storing quantized LLM models, commonly used by Ollama and llama.cpp. Optimized for CPU and mixed CPU/GPU inference.
+A file format for storing quantized LLM models, commonly used by Ollama and llama.cpp. Optimized for CPU and mixed CPU/GPU inference. Ollama can import custom GGUF models via a `Modelfile` with a `FROM ./model.gguf` directive.
 
 ### Grounding
 The process of connecting an LLM's responses to factual, verifiable information sources such as documents, databases, or APIs.
@@ -54,7 +54,7 @@ An architecture where some components run locally and others run in the cloud, b
 ## L
 
 ### LLM (Large Language Model)
-A neural network trained on large amounts of text data that can generate, summarize, translate, and reason about text. Examples: GPT-4, Llama 3, Phi-3, Mistral.
+A neural network trained on large amounts of text data that can generate, summarize, translate, and reason about text. Examples: GPT-5, Llama 4, Llama 3.3, Gemma 3, Phi 4, Qwen 2.5, DeepSeek-R1, Mistral.
 
 ### Local-First
 A development philosophy where applications are designed to work fully on a developer's machine without requiring cloud services.
@@ -74,7 +74,7 @@ A system where multiple agents collaborate, each with specialized capabilities, 
 ## O
 
 ### Ollama
-An open-source tool for running LLMs locally. Provides a simple CLI and REST API for model management and inference.
+An open-source tool (v0.15.6, 162k+ GitHub stars, MIT license) for running LLMs locally. Built on [llama.cpp](https://github.com/ggml-org/llama.cpp), it provides a simple CLI and REST API for model management and inference. Supports GGUF and Safetensors model imports, customizable Modelfiles, concurrent model serving, and GPU auto-detection. Available for Windows, macOS, Linux, and Docker. See [ollama.com](https://ollama.com/) and [GitHub](https://github.com/ollama/ollama).
 
 ### ONNX (Open Neural Network Exchange)
 An open format for representing machine learning models. ONNX Runtime provides optimized inference for .NET applications.
@@ -118,6 +118,13 @@ A capability that an agent can invoke to interact with external systems (file sy
 
 ### Token
 The basic unit of text processing in LLMs. A token is roughly 3/4 of a word in English. Models have context windows measured in tokens.
+
+---
+
+## M (continued)
+
+### Modelfile
+An Ollama configuration file used to customize models with system prompts, parameters (temperature, top_p), and adapter layers. Similar to a Dockerfile but for LLMs. See [Ollama Modelfile docs](https://docs.ollama.com/modelfile).
 
 ---
 

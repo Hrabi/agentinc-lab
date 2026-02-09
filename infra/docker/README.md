@@ -2,7 +2,7 @@
 
 Docker Compose configurations for running LLMs locally with GPU acceleration.
 
-> **Target machine:** Intel Core Ultra 9 275HX · 192 GB DDR5 · RTX 5090 24 GB · Windows 11 Pro
+> **Target machine:** Lenovo 83EY · Intel Core Ultra 9 275HX (24 cores) · 192 GB DDR5 · NVIDIA RTX 5090 Laptop GPU 24 GB · Windows 11 Pro
 
 ## Prerequisites
 
@@ -45,12 +45,16 @@ Best for quick development iteration. Pull models with `ollama pull <model>`.
 
 ```powershell
 # Pull additional models
-docker exec agenticlab-ollama ollama pull mistral-nemo
+docker exec agenticlab-ollama ollama pull gemma3:12b
 docker exec agenticlab-ollama ollama pull deepseek-r1:32b
 docker exec agenticlab-ollama ollama pull gemma3:27b
+docker exec agenticlab-ollama ollama pull phi4
 
 # List loaded models
 docker exec agenticlab-ollama ollama list
+
+# Show currently running models
+docker exec agenticlab-ollama ollama ps
 ```
 
 **API:** Custom Ollama API at `http://localhost:11434`
@@ -93,14 +97,26 @@ Open `http://localhost:3000` after starting.
 
 ## Recommended Models for RTX 5090 (24 GB VRAM)
 
-| Model | VRAM (Q4) | Pull Command |
-|-------|----------:|-------------|
+Ollama (v0.15.6) memory requirements: 8 GB RAM for 7B, 16 GB for 13B, 32 GB for 33B.
+
+| Model | Size | Pull Command |
+|-------|-----:|-------------|
+| Gemma 3 1B | 815 MB | `ollama pull gemma3:1b` |
+| Gemma 3 4B (default) | 3.3 GB | `ollama pull gemma3` |
+| Phi 4 Mini 3.8B | 2.5 GB | `ollama pull phi4-mini` |
+| Llama 3.2 3B | 2.0 GB | `ollama pull llama3.2` |
+| Mistral 7B | 4.1 GB | `ollama pull mistral` |
+| DeepSeek-R1 7B | 4.7 GB | `ollama pull deepseek-r1` |
+| Llama 3.1 8B | 4.7 GB | `ollama pull llama3.1` |
+| Granite 3.3 8B | 4.9 GB | `ollama pull granite3.3` |
+| Gemma 3 12B | 8.1 GB | `ollama pull gemma3:12b` |
 | Qwen 2.5 14B | ~9 GB | `ollama pull qwen2.5:14b` |
-| Llama 3.2 8B | ~5 GB | `ollama pull llama3.2` |
-| Gemma 3 27B | ~16 GB | `ollama pull gemma3:27b` |
-| Mistral Nemo 12B | ~7 GB | `ollama pull mistral-nemo` |
-| DeepSeek R1 Distill 32B | ~20 GB | `ollama pull deepseek-r1:32b` |
-| Llama 3.3 70B (offload) | 24+18 GB | `ollama pull llama3.3:70b` |
+| Phi 4 14B | 9.1 GB | `ollama pull phi4` |
+| Gemma 3 27B | 17 GB | `ollama pull gemma3:27b` |
+| QwQ 32B | 20 GB | `ollama pull qwq` |
+| DeepSeek-R1 32B | ~20 GB | `ollama pull deepseek-r1:32b` |
+| Llama 3.3 70B (offload) | 43 GB | `ollama pull llama3.3` |
+| Llama 4 Scout (offload) | 67 GB | `ollama pull llama4:scout` |
 
 ## Environment Variables
 

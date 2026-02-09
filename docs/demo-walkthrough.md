@@ -200,14 +200,18 @@ ModelResponse → { Text, ModelName, PromptTokens, CompletionTokens }
 ### Prerequisites
 
 ```powershell
-# 1. Install Ollama natively
+# 1. Install Ollama natively (v0.15.6+)
 winget install Ollama.Ollama
 
-# 2. Pull a model
+# 2. Pull a model (gemma3 is Ollama's default, or use llama3.2)
+ollama pull gemma3
+
+# Or for the demo's default model:
 ollama pull llama3.2
 
 # 3. Verify it's running
 ollama list
+ollama ps
 ```
 
 ### Run
@@ -255,8 +259,8 @@ flowchart TB
         Router -->|Simple| Local[OllamaModel<br/>qwen2.5:14b]
         Router -->|Complex| Cloud[AzureOpenAIModel<br/>GPT-5.2]
         Runtime2 --> ToolAgent[Tool-Using Agent]
-        ToolAgent --> FileSystem[📂 File Tool]
-        ToolAgent --> WebSearch[🔍 Search Tool]
+        ToolAgent --> FileSystem["📂 File Tool"]
+        ToolAgent --> WebSearch["🔍 Search Tool"]
         Runtime2 --> MultiAgent[Multi-Agent<br/>Orchestration]
     end
 

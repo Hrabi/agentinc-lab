@@ -16,7 +16,7 @@ Before you begin, ensure you have the following installed:
 
 ### Optional
 
-- [ ] **Ollama** — [Download](https://ollama.com/) (for local LLM execution)
+- [ ] **Ollama** — [Download](https://ollama.com/) (v0.15.6, for local LLM execution)
 - [ ] **Visual Studio 2026** (for full IDE experience)
 - [ ] **GitHub Copilot** subscription (for AI-assisted development)
 
@@ -48,14 +48,15 @@ Verify all projects build successfully.
 
 ```bash
 # Install Ollama (if not already installed)
-# Then pull a model:
-ollama pull llama3.2
+# Windows: winget install Ollama.Ollama
+# Then pull a model (gemma3 4B is Ollama's default quickstart model):
+ollama pull gemma3
 
 # Verify it's running:
 ollama list
 ```
 
-The Ollama API runs at `http://localhost:11434` by default.
+The Ollama API (v0.15.6) runs at `http://localhost:11434` by default.
 
 ### Using Docker
 

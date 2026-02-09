@@ -1,7 +1,8 @@
 ## ---------------------------------------------------------------------------
 ## AgenticLab — Local LLM Infrastructure
 ## ---------------------------------------------------------------------------
-## Dev machine: Intel Core Ultra 9 275HX · 192 GB DDR5 · RTX 5090 24 GB · Win 11
+## Dev machine: Lenovo 83EY · Intel Core Ultra 9 275HX (24 cores) · 192 GB DDR5
+##              NVIDIA RTX 5090 Laptop GPU 24 GB · Windows 11 Pro
 ##
 ## Usage:
 ##   docker compose up -d                      # Start Ollama (default)

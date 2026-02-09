@@ -2,7 +2,7 @@
 
 > Configure and run large language models locally for use with AgenticLab.
 >
-> **Target machine:** Intel Core Ultra 9 275HX · 192 GB DDR5 · RTX 5090 24 GB · Windows 11 Pro
+> **Target machine:** Lenovo 83EY · Intel Core Ultra 9 275HX (24 cores) · 192 GB DDR5 · NVIDIA RTX 5090 Laptop GPU 24 GB · Windows 11 Pro
 
 ---
 
@@ -21,7 +21,7 @@ AgenticLab supports multiple local LLM providers. Choose based on your workflow:
 
 ## Option 1: Ollama — Native Install (Fastest Start)
 
-[Ollama](https://ollama.com/) is the easiest way to run LLMs locally. Install natively for the simplest experience.
+[Ollama](https://ollama.com/) (v0.15.6, [162k+ stars on GitHub](https://github.com/ollama/ollama), MIT license) is the easiest way to run LLMs locally. Built on [llama.cpp](https://github.com/ggml-org/llama.cpp), it provides a simple CLI and REST API for model management and inference. Supports GGUF and Safetensors imports.
 
 ### Installation
 
@@ -29,7 +29,10 @@ AgenticLab supports multiple local LLM providers. Choose based on your workflow:
 # Windows — use winget:
 winget install Ollama.Ollama
 
-# Or download from https://ollama.com/download
+# Or download from https://ollama.com/download/OllamaSetup.exe
+
+# Linux:
+# curl -fsSL https://ollama.com/install.sh | sh
 ```
 
 ### Pull Models (recommended for RTX 5090)
@@ -38,14 +41,23 @@ winget install Ollama.Ollama
 # Best all-rounder for your VRAM (9 GB)
 ollama pull qwen2.5:14b
 
-# Fast utility model (5 GB)
+# Fast utility model — Gemma 3 4B (3.3 GB, Ollama's default quickstart model)
+ollama pull gemma3
+
+# Lightweight fast model (2.0 GB)
 ollama pull llama3.2
 
-# Near-cloud quality (16 GB)
+# Near-cloud quality (17 GB)
 ollama pull gemma3:27b
 
 # Reasoning specialist (20 GB)
 ollama pull deepseek-r1:32b
+
+# Alternative reasoning model (20 GB)
+ollama pull qwq
+
+# Phi 4 — strong 14B alternative (9.1 GB)
+ollama pull phi4
 
 # Embedding model for RAG
 ollama pull nomic-embed-text
@@ -57,8 +69,17 @@ ollama pull llama3.3:70b
 ### Verify
 
 ```powershell
-ollama list
-ollama run qwen2.5:14b "What is an agentic system?"
+ollama list                                     # List downloaded models
+ollama ps                                       # List currently loaded models
+ollama run gemma3 "What is an agentic system?"   # Chat with a model
+ollama show gemma3                               # Show model info
+ollama stop gemma3                               # Unload a model from memory
+```
+
+### Generate Embeddings
+
+```powershell
+ollama run nomic-embed-text "Your text to embed"
 ```
 
 ### API Access
@@ -66,10 +87,49 @@ ollama run qwen2.5:14b "What is an agentic system?"
 Ollama exposes a REST API at `http://localhost:11434`:
 
 ```powershell
+# Chat endpoint (recommended)
 curl http://localhost:11434/api/chat -d '{
   "model": "qwen2.5:14b",
   "messages": [{"role": "user", "content": "What is an agentic system?"}]
 }'
+
+# Generate endpoint (single prompt)
+curl http://localhost:11434/api/generate -d '{
+  "model": "qwen2.5:14b",
+  "prompt": "Why is the sky blue?"
+}'
+```
+
+### Custom Models (Modelfile)
+
+Ollama supports customizing models with a `Modelfile`:
+
+```dockerfile
+FROM qwen2.5:14b
+
+PARAMETER temperature 0.1
+
+SYSTEM """
+You are a CRM data extraction specialist.
+Extract structured JSON from user messages.
+"""
+```
+
+```powershell
+ollama create crm-extractor -f ./Modelfile
+ollama run crm-extractor
+```
+
+### Import Custom GGUF Models
+
+```dockerfile
+# Modelfile
+FROM ./my-custom-model.Q4_K_M.gguf
+```
+
+```powershell
+ollama create my-model -f Modelfile
+ollama run my-model
 ```
 
 ---
@@ -207,17 +267,28 @@ Open `http://localhost:3000` — connects to both Ollama and vLLM.
 
 ## Model Selection Guide for RTX 5090 (24 GB VRAM)
 
-| Model | Quant | VRAM | Speed (est.) | Quality | Best For |
-|-------|-------|-----:|:-------------|---------|----------|
-| Llama 3.2 3B | Q4_K_M | ~2 GB | ~120 tok/s | Good | Classification, routing |
-| Llama 3.2 8B | Q4_K_M | ~5 GB | ~80 tok/s | Better | Quick tasks, tool use |
-| Mistral Nemo 12B | Q4_K_M | ~7 GB | ~60 tok/s | Very Good | Local coding assistant |
-| Qwen 2.5 14B | Q4_K_M | ~9 GB | ~50 tok/s | Excellent | **Best local all-rounder** |
-| gpt-oss-20B | Q4_K_M | ~12 GB | ~40 tok/s | Excellent | OpenAI open-weight |
-| Gemma 3 27B | Q4_K_M | ~16 GB | ~30 tok/s | Near-Cloud | Complex reasoning |
-| DeepSeek R1 32B | Q4_K_M | ~20 GB | ~25 tok/s | Excellent | Reasoning chains |
-| Llama 3.3 70B | Q4_K_M | 24+18 GB | ~15 tok/s | Cloud-tier | Complex tasks (uses RAM offload) |
-| gpt-oss-120B | Q4_K_M | 24+48 GB | ~8 tok/s | Top | Maximum power (heavy offload) |
+Ollama memory requirements: **8 GB RAM for 7B models, 16 GB for 13B, 32 GB for 33B.**
+With 192 GB DDR5 and 24 GB VRAM, your machine can run any model up to 33B fully on GPU, and much larger models with RAM offload.
+
+| Model | Params | Size | Speed (est.) | Quality | Best For |
+|-------|--------|-----:|:-------------|---------|----------|
+| Gemma 3 1B | 1B | 815 MB | ~150 tok/s | Decent | Tiny routing, edge tasks |
+| Llama 3.2 1B | 1B | 1.3 GB | ~140 tok/s | Decent | Ultra-fast classification |
+| Llama 3.2 3B | 3B | 2.0 GB | ~120 tok/s | Good | Classification, routing |
+| Phi 4 Mini | 3.8B | 2.5 GB | ~110 tok/s | Good | SLM tasks, quick lookups |
+| Gemma 3 4B | 4B | 3.3 GB | ~100 tok/s | Good | **Fast utility** (Ollama default) |
+| DeepSeek-R1 7B | 7B | 4.7 GB | ~80 tok/s | Better | Reasoning (small) |
+| Llama 3.1 8B | 8B | 4.7 GB | ~75 tok/s | Better | Quick tasks, tool use |
+| Mistral 7B | 7B | 4.1 GB | ~80 tok/s | Better | Local coding assistant |
+| Granite 3.3 8B | 8B | 4.9 GB | ~75 tok/s | Better | Enterprise text tasks |
+| Gemma 3 12B | 12B | 8.1 GB | ~55 tok/s | Very Good | Balanced quality/speed |
+| Qwen 2.5 14B | 14B | ~9 GB | ~50 tok/s | Excellent | **Best local all-rounder** |
+| Phi 4 | 14B | 9.1 GB | ~50 tok/s | Excellent | Strong 14B alternative |
+| Gemma 3 27B | 27B | 17 GB | ~30 tok/s | Near-Cloud | Complex reasoning |
+| QwQ | 32B | 20 GB | ~25 tok/s | Excellent | Reasoning specialist |
+| DeepSeek-R1 32B | 32B | ~20 GB | ~25 tok/s | Excellent | Reasoning chains |
+| Llama 3.3 70B | 70B | 43 GB | ~15 tok/s | Cloud-tier | Complex tasks (uses RAM offload) |
+| Llama 4 Scout | 109B | 67 GB | ~8 tok/s | Top | Latest Llama (heavy offload) |
 
 ### Developer Recommendation
 
@@ -226,7 +297,8 @@ For AgenticLab development, start with this combination:
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Qwen 2.5 14B   — primary dev model (fits in GPU, fast)     │
-│  Llama 3.2 8B   — fast routing / classification agent       │
+│  Gemma 3 4B     — fast routing / classification agent        │
+│  Phi 4 Mini     — ultra-fast SLM for simple tasks            │
 │  nomic-embed     — embeddings for RAG pipeline               │
 │  Cloud fallback  — Opus 4.6 / GPT-5.2 via IModelRouter      │
 └──────────────────────────────────────────────────────────────┘
@@ -293,6 +365,21 @@ For AgenticLab development, start with this combination:
   }
 }
 ```
+
+---
+
+## Ollama Reference
+
+- **Official website:** [ollama.com](https://ollama.com/)
+- **GitHub:** [github.com/ollama/ollama](https://github.com/ollama/ollama) (162k+ stars, MIT license)
+- **Current version:** v0.15.6
+- **Model library:** [ollama.com/library](https://ollama.com/library)
+- **REST API docs:** [github.com/ollama/ollama/blob/main/docs/api.md](https://github.com/ollama/ollama/blob/main/docs/api.md)
+- **Modelfile docs:** [docs.ollama.com/modelfile](https://docs.ollama.com/modelfile)
+- **Python library:** [ollama-python](https://github.com/ollama/ollama-python)
+- **JS library:** [ollama-js](https://github.com/ollama/ollama-js)
+- **.NET library:** [OllamaSharp](https://github.com/awaescher/OllamaSharp)
+- **Community:** [Discord](https://discord.gg/ollama) · [Reddit](https://reddit.com/r/ollama)
 
 ---
 

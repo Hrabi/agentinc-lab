@@ -158,7 +158,7 @@ An agentic system goes beyond answering. It receives a **goal**, creates a **pla
 |-----------|---------------|-------------------|
 | Embedding model | `nomic-embed-text` via Ollama | Azure OpenAI Embeddings |
 | Vector store | ChromaDB, SQLite-vec, Qdrant | Azure AI Search |
-| LLM | Llama 3.2 8B, Qwen 2.5 14B via Ollama | Azure OpenAI GPT-4o |
+| LLM | Gemma 3 4B, Qwen 2.5 14B via Ollama | Azure OpenAI GPT-4o |
 | Document ingestion | .NET code, local file system | Azure Blob Storage |
 
 ---
@@ -384,8 +384,8 @@ flowchart LR
 | **GPT** (General) | Writing, reasoning, coding | Llama 3.2 8B, Qwen 2.5 14B | General text processing, CRM entity extraction |
 | **MoE** (Mixture of Experts) | Efficient high-quality at scale | DeepSeek V3 (too large), Mixtral 8x7B | Not practical locally yet |
 | **VLM** (Vision-Language) | Images + text understanding | LLaVA, Gemma 3 27B | Invoice scanning, diagram understanding |
-| **LRM** (Large Reasoning) | Multi-step logic, planning | DeepSeek R1 Distill 32B | Complex document analysis, decision trees |
-| **SLM** (Small Language) | Speed, edge deployment | Phi-3 mini, Gemma 3n | Classification, routing, quick lookups |
+| **LRM** (Large Reasoning) | Multi-step logic, planning | DeepSeek R1 32B, QwQ 32B | Complex document analysis, decision trees |
+| **SLM** (Small Language) | Speed, edge deployment | Phi 4 Mini 3.8B, Gemma 3 1B | Classification, routing, quick lookups |
 | **LAM** (Large Action) | Tool use, API calls, actions | — (emerging category) | CRM creation, system integration |
 
 ### Recommendation: Match Model to Task
@@ -394,10 +394,10 @@ flowchart LR
 flowchart TD
     Task{"What's the task?"}
     
-    Task -->|"Simple classification,<br/>routing, tagging"| SLM["SLM<br/>Phi-3 mini / Gemma 3n<br/>⚡ ~100 tok/s"]
+    Task -->|"Simple classification,<br/>routing, tagging"| SLM["SLM<br/>Phi 4 Mini / Gemma 3 1B<br/>⚡ ~110 tok/s"]
     Task -->|"Document Q&A,<br/>text generation"| GPT["GPT-type<br/>Qwen 2.5 14B<br/>⚡ ~50 tok/s"]
     Task -->|"Image/PDF<br/>understanding"| VLM["VLM<br/>LLaVA / Gemma 3 27B<br/>⚡ ~30 tok/s"]
-    Task -->|"Complex reasoning,<br/>multi-step logic"| LRM["LRM<br/>DeepSeek R1 Distill 32B<br/>⚡ ~25 tok/s"]
+    Task -->|"Complex reasoning,<br/>multi-step logic"| LRM["LRM<br/>DeepSeek R1 32B / QwQ 32B<br/>⚡ ~25 tok/s"]
     
     style SLM fill:#e8f5e9,stroke:#4caf50
     style GPT fill:#e3f2fd,stroke:#2196f3
@@ -676,8 +676,8 @@ flowchart TB
             ClassAgent["🏷️ Classification<br/>Agent"]
         end
         
-        subgraph Models["Local LLMs (Ollama)"]
-            SLM2["⚡ Phi-3 mini<br/>Classification"]
+        subgraph Models["Local LLMs (Ollama v0.15.6)"]
+            SLM2["⚡ Phi 4 Mini<br/>Classification"]
             GPT2["🧠 Qwen 2.5 14B<br/>Text Processing"]
             VLM2["👁️ LLaVA<br/>Vision"]
         end
@@ -767,17 +767,17 @@ flowchart TB
 
 | Component | Minimum | Recommended | Our Setup |
 |-----------|---------|-------------|-----------|
-| CPU | 8 cores | 16+ cores | Intel Core Ultra 9 275HX |
+| CPU | 8 cores | 16+ cores | Intel Core Ultra 9 275HX (24 cores) |
 | RAM | 32 GB | 64-192 GB | 192 GB DDR5 |
-| GPU | 8 GB VRAM | 16-24 GB VRAM | RTX 5090 24 GB |
+| GPU | 8 GB VRAM | 16-24 GB VRAM | NVIDIA RTX 5090 Laptop GPU 24 GB |
 | Storage | 256 GB SSD | 1+ TB NVMe | 4 TB SSD |
 
 ### Software Stack
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| LLM Runtime | **Ollama** | Run local models with simple REST API |
-| Models | **Qwen 2.5 14B**, **Phi-3 mini** | Text processing, classification |
+| LLM Runtime | **Ollama** (v0.15.6) | Run local models with simple REST API |
+| Models | **Qwen 2.5 14B**, **Phi 4 Mini** | Text processing, classification |
 | Vector Store | **ChromaDB** or **SQLite-vec** | Document embeddings for RAG |
 | Embeddings | **nomic-embed-text** (via Ollama) | Convert text to vectors |
 | Application | **.NET 10 / C# 14** | Agent runtime (AgenticLab) |
@@ -786,7 +786,7 @@ flowchart TB
 ### 5-Minute Quick Start
 
 ```bash
-# 1. Install Ollama
+# 1. Install Ollama (v0.15.6+)
 winget install Ollama.Ollama
 
 # 2. Pull a specialist model
@@ -799,7 +799,11 @@ ollama pull nomic-embed-text
 ollama run qwen2.5:14b "Extract name, company, and email from: 
   'Hi, I'm Jana Dvořáková from TechCorp, reach me at jana@techcorp.cz'"
 
-# 5. Clone and run AgenticLab
+# 5. Verify models
+ollama list
+ollama ps
+
+# 6. Clone and run AgenticLab
 git clone https://github.com/your-org/agentinc-lab.git
 cd agentinc-lab/src
 dotnet run --project AgenticLab.Demos
@@ -1474,8 +1478,8 @@ public class BdiOrchestratorAgent : IAgent
 
 | Question | Answer |
 |----------|--------|
-| What stack? | .NET 10, C# 14, Ollama, ChromaDB, AgenticLab |
-| Which model to start with? | Qwen 2.5 14B for general, Phi-3 mini for classification |
+| What stack? | .NET 10, C# 14, Ollama (v0.15.6), ChromaDB, AgenticLab |
+| Which model to start with? | Qwen 2.5 14B for general, Phi 4 Mini for classification |
 | How do I add RAG? | Embed with `nomic-embed-text`, store in ChromaDB, retrieve top-K |
 | How do I call external APIs? | Implement `ITool`, agent invokes it after LLM extraction |
 | Can I test it? | Yes — all interfaces are mockable, design is DI-first |
