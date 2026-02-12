@@ -15,10 +15,7 @@ public class AgentFactoryService
     private readonly ILogger<AgentFactoryService> _logger;
     private readonly List<AgentConfig> _configs = [];
 
-    public AgentFactoryService(
-        ModelRegistryService modelRegistry,
-        IHttpClientFactory httpClientFactory,
-        ILoggerFactory loggerFactory,
+    public AgentFactoryService(ModelRegistryService modelRegistry, IHttpClientFactory httpClientFactory, ILoggerFactory loggerFactory,
         ILogger<AgentFactoryService> logger)
     {
         _modelRegistry = modelRegistry;

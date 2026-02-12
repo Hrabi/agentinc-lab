@@ -18,6 +18,7 @@ builder.Services.AddSingleton<ExampleService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<CompareService>();
 builder.Services.AddSingleton<ExportService>();
+builder.Services.AddSingleton<RagDemoService>();
 builder.Services.AddSingleton<AgentRuntime>();
 
 // Register HttpClient for Ollama — no retries, generous timeout for LLM inference

@@ -1,0 +1,281 @@
+@page "/rag-demo"
+
+<PageTitle>AgenticLab — RAG Demo</PageTitle>
+
+<div style="display: block;">
+<div class="section-header">
+    <h1>RAG Pipeline Demo</h1>
+</div>
+<p>Retrieval-Augmented Generation: ground LLM answers in your own documents. This page demonstrates each stage of the pipeline with pre-built scenarios from <strong>Contoso Electronics</strong> demo data.</p>
+
+@* ──────── Pipeline Overview ──────── *@
+<FluentCard Style="margin-bottom: 20px; padding: 12px 16px;">
+    <h3 style="margin: 0 0 8px 0;">Pipeline Overview</h3>
+    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 6px; flex-wrap: wrap; justify-content: center; align-items: stretch;">
+        @foreach (var (label, icon, description) in _pipelineStages)
+        {
+            <div style="flex: 1; min-width: 120px; max-width: 180px; text-align: center; padding: 8px 6px; border: 1px solid var(--neutral-stroke-divider-rest); border-radius: 6px;">
+                <div style="font-size: 1.2rem; line-height: 1;">@icon</div>
+                <div style="margin: 4px 0 2px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--neutral-foreground-hint);">@label</div>
+                <div style="font-size: 0.7rem; color: var(--neutral-foreground-hint); line-height: 1.3;">@description</div>
+            </div>
+        }
+    </FluentStack>
+</FluentCard>
+
+@* ──────── Tab selection ──────── *@
+<FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; margin-bottom: 24px;">
+    <FluentButton Appearance="@(_activeTab == "documents" ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _activeTab = "documents")">
+        📄 Documents (@_documents.Count)
+    </FluentButton>
+    <FluentButton Appearance="@(_activeTab == "chunks" ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _activeTab = "chunks")">
+        ✂️ Chunks (@_chunks.Count)
+    </FluentButton>
+    <FluentButton Appearance="@(_activeTab == "scenarios" ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _activeTab = "scenarios")">
+        🔍 Scenarios (@_scenarios.Count)
+    </FluentButton>
+</FluentStack>
+
+@* ──────── Documents Tab ──────── *@
+@if (_activeTab == "documents")
+{
+    <h2>Ingested Documents</h2>
+    <p>These demo files are ingested, chunked, and embedded into a vector database.</p>
+    <FluentDataGrid Items="@_documents.AsQueryable()" Style="width: 100%;">
+        <PropertyColumn Property="@(d => d.Icon)" Title="" Style="width: 40px; text-align: center; font-size: 1.2rem;" />
+        <PropertyColumn Property="@(d => d.FileName)" Title="File" />
+        <PropertyColumn Property="@(d => d.FileType)" Title="Type" />
+        <PropertyColumn Property="@(d => d.Description)" Title="Description" />
+        <PropertyColumn Property="@(d => d.WordCount)" Title="Words" Format="N0" />
+        <PropertyColumn Property="@(d => d.ChunkCount)" Title="Chunks" />
+    </FluentDataGrid>
+
+    <FluentCard Style="margin-top: 24px; padding: 16px; flex: none;">
+        <h3 style="margin-top: 0;">Pipeline Stats</h3>
+        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 16px; flex-wrap: wrap; align-items: flex-start;">
+            <div class="stat-card" style="flex: 1; min-width: 120px;">
+                <h3>Documents</h3>
+                <div class="stat-value">@_documents.Count</div>
+            </div>
+            <div class="stat-card" style="flex: 1; min-width: 120px;">
+                <h3>Total Chunks</h3>
+                <div class="stat-value">@_chunks.Count</div>
+            </div>
+            <div class="stat-card" style="flex: 1; min-width: 120px;">
+                <h3>Total Tokens</h3>
+                <div class="stat-value">@_chunks.Sum(c => c.TokenCount).ToString("N0")</div>
+            </div>
+            <div class="stat-card" style="flex: 1; min-width: 120px;">
+                <h3>File Types</h3>
+                <div class="stat-value">@_documents.Select(d => d.FileType).Distinct().Count()</div>
+            </div>
+        </FluentStack>
+    </FluentCard>
+}
+
+@* ──────── Chunks Tab ──────── *@
+@if (_activeTab == "chunks")
+{
+    <h2>Document Chunks</h2>
+    <p>Each document is split into overlapping chunks of ~200-400 tokens. Select a document to view its chunks.</p>
+
+    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; margin-bottom: 16px;">
+        <FluentButton Appearance="@(_selectedDocId is null ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _selectedDocId = null)">
+            All (@_chunks.Count)
+        </FluentButton>
+        @foreach (var doc in _documents)
+        {
+            var id = doc.Id;
+            <FluentButton Appearance="@(_selectedDocId == id ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _selectedDocId = id)">
+                @doc.Icon @doc.FileName (@doc.ChunkCount)
+            </FluentButton>
+        }
+    </FluentStack>
+
+    <FluentStack Orientation="Orientation.Vertical" Style="gap: 8px;">
+        @foreach (var chunk in FilteredChunks)
+        {
+            var doc = _documents.Find(d => d.Id == chunk.DocumentId);
+            <FluentCard Style="padding: 12px;">
+                <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; align-items: center;">
+                        <FluentBadge Appearance="Appearance.Accent">Chunk @chunk.ChunkIndex</FluentBadge>
+                        <span style="font-size: 0.82rem; color: var(--neutral-foreground-hint);">@doc?.FileName</span>
+                    </FluentStack>
+                    <FluentBadge Appearance="Appearance.Neutral">@chunk.TokenCount tokens</FluentBadge>
+                </FluentStack>
+                <div style="font-size: 0.88rem; font-family: 'Cascadia Code', 'Consolas', monospace; color: var(--neutral-foreground-rest); opacity: 0.85;">
+                    @chunk.Preview
+                </div>
+            </FluentCard>
+        }
+    </FluentStack>
+}
+
+@* ──────── Scenarios Tab ──────── *@
+@if (_activeTab == "scenarios")
+{
+    <h2>RAG Scenarios</h2>
+    <p>Pre-built question → retrieval → answer demos. Select a category to filter, then expand a scenario to see the full pipeline in action.</p>
+
+    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; margin-bottom: 24px;">
+        <FluentButton Appearance="@(_selectedScenarioCategory is null ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _selectedScenarioCategory = null)">
+            All (@_scenarios.Count)
+        </FluentButton>
+        @foreach (var cat in _scenarioCategories)
+        {
+            var c = cat;
+            <FluentButton Appearance="@(_selectedScenarioCategory == c ? Appearance.Accent : Appearance.Outline)" OnClick="@(() => _selectedScenarioCategory = c)">
+                @c (@_scenarios.Count(s => s.Category == c))
+            </FluentButton>
+        }
+    </FluentStack>
+
+    <FluentStack Orientation="Orientation.Vertical" Style="gap: 16px;">
+        @foreach (var scenario in FilteredScenarios)
+        {
+            <FluentCard Class="example-card">
+                <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; align-items: center;">
+                        <h3 style="margin: 0;">@scenario.Title</h3>
+                        <FluentBadge Appearance="@(scenario.Category == "Hallucination Test" ? Appearance.Neutral : Appearance.Accent)">@scenario.Category</FluentBadge>
+                    </FluentStack>
+                    <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => ToggleScenario(scenario.Id))">
+                        @(_expandedScenarioId == scenario.Id ? "Collapse" : "Expand")
+                    </FluentButton>
+                </FluentStack>
+
+                <div class="code-block" style="margin: 8px 0; padding: 12px;">
+                    <strong>❓ Question:</strong> @scenario.Question
+                </div>
+
+                @if (_expandedScenarioId == scenario.Id)
+                {
+                    @* Stage 1: Retrieved chunks *@
+                    <div style="margin-top: 16px; border-top: 1px solid var(--neutral-stroke-divider-rest); padding-top: 16px;">
+                        <h4 style="margin-top: 0;">🔍 Stage 1 — Vector Search Results</h4>
+                        <p class="param-info">Top @scenario.RetrievedChunks.Count chunks ranked by cosine similarity to the question embedding.</p>
+
+                        <FluentStack Orientation="Orientation.Vertical" Style="gap: 8px;">
+                            @foreach (var (chunk, idx) in scenario.RetrievedChunks.Select((c, i) => (c, i)))
+                            {
+                                <FluentCard Style="@($"padding: 12px; border-left: 3px solid {ScoreColor(chunk.Score)};")">
+                                    <FluentStack Orientation="Orientation.Horizontal" Style="justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; align-items: center;">
+                                            <FluentBadge Style="@($"background: {ScoreColor(chunk.Score)}; color: white;")">@chunk.Score.ToString("F2")</FluentBadge>
+                                            <span style="font-weight: 600; font-size: 0.88rem;">@chunk.SourceFile</span>
+                                            <FluentBadge Appearance="Appearance.Neutral">Chunk @chunk.ChunkIndex</FluentBadge>
+                                        </FluentStack>
+                                        <span style="font-size: 0.78rem; color: var(--neutral-foreground-hint);">Result #@(idx + 1)</span>
+                                    </FluentStack>
+                                    <div style="font-size: 0.85rem; line-height: 1.5;">@chunk.Text</div>
+                                </FluentCard>
+                            }
+                        </FluentStack>
+                    </div>
+
+                    @* Stage 2: Augmented Prompt *@
+                    <div style="margin-top: 20px;">
+                        <h4 style="margin-top: 0;">📝 Stage 2 — Augmented Prompt</h4>
+                        <p class="param-info">The retrieved context is injected into a structured prompt sent to the LLM.</p>
+                        <div class="code-block" style="font-size: 0.8rem; max-height: 300px; overflow-y: auto;">@RagDemoSvc.BuildAugmentedPrompt(scenario.Question, scenario.RetrievedChunks)</div>
+                    </div>
+
+                    @* Stage 3: Grounded Answer *@
+                    <div style="margin-top: 20px;">
+                        <h4 style="margin-top: 0;">✅ Stage 3 — Grounded Answer</h4>
+                        <p class="param-info">The LLM generates an answer constrained to the provided context, with source citations.</p>
+
+                        <FluentCard Style="padding: 16px; border-left: 3px solid var(--accent-fill-rest);">
+                            <div style="font-size: 0.92rem; line-height: 1.6;">@scenario.ExpectedAnswer</div>
+                            @if (scenario.GroundedInDocuments.Count > 0)
+                            {
+                                <FluentStack Orientation="Orientation.Horizontal" Style="gap: 4px; margin-top: 12px; flex-wrap: wrap;">
+                                    <span style="font-size: 0.78rem; font-weight: 600;">Sources:</span>
+                                    @foreach (var doc in scenario.GroundedInDocuments)
+                                    {
+                                        <FluentBadge Appearance="Appearance.Accent" Style="font-size: 0.75rem;">@doc</FluentBadge>
+                                    }
+                                </FluentStack>
+                            }
+                            else
+                            {
+                                <div style="margin-top: 8px; font-size: 0.82rem; color: var(--neutral-foreground-hint);">
+                                    ⚠️ No matching sources — the LLM correctly declined to fabricate an answer.
+                                </div>
+                            }
+                        </FluentCard>
+                    </div>
+
+                    @* Without RAG comparison *@
+                    @if (scenario.Category == "Hallucination Test")
+                    {
+                        <FluentCard Style="margin-top: 16px; padding: 16px; border-left: 3px solid #e74c3c;">
+                            <h4 style="margin-top: 0; color: #e74c3c;">⚠️ Without RAG</h4>
+                            <div style="font-size: 0.85rem; line-height: 1.5;">
+                                Without RAG, the LLM would likely <strong>hallucinate</strong> an answer — inventing facts about
+                                @if (scenario.Id == "rag-h1") { <span>stock prices that don't exist in any document.</span> }
+                                else if (scenario.Id == "rag-h2") { <span>a CTO name that appears nowhere in the company data.</span> }
+                                else if (scenario.Id == "rag-h3") { <span>television products that Contoso doesn't manufacture.</span> }
+                                RAG forces the answer to be grounded in retrieved evidence, preventing fabrication.
+                            </div>
+                        </FluentCard>
+                    }
+                }
+            </FluentCard>
+        }
+    </FluentStack>
+}
+</div>
+
+@code {
+    [Inject] private RagDemoService RagDemoSvc { get; set; } = default!;
+
+    private List<DemoDocument> _documents = [];
+    private List<DemoChunk> _chunks = [];
+    private List<RagDemoScenario> _scenarios = [];
+    private List<string> _scenarioCategories = [];
+
+    private string _activeTab = "scenarios";
+    private string? _selectedDocId;
+    private string? _selectedScenarioCategory;
+    private string? _expandedScenarioId;
+
+    private IEnumerable<DemoChunk> FilteredChunks =>
+        _selectedDocId is null ? _chunks : _chunks.Where(c => c.DocumentId == _selectedDocId);
+
+    private IEnumerable<RagDemoScenario> FilteredScenarios =>
+        _selectedScenarioCategory is null ? _scenarios : _scenarios.Where(s => s.Category == _selectedScenarioCategory);
+
+    private static readonly List<(string Label, string Icon, string Description)> _pipelineStages =
+    [
+        ("Ingest", "📄", "Load documents (MD, JSON, C#, PDF)"),
+        ("Chunk", "✂️", "Split into ~300 token overlapping chunks"),
+        ("Embed", "🧮", "Convert chunks to 768-dim vectors via nomic-embed-text"),
+        ("Store", "🗄️", "Index vectors in Qdrant vector database"),
+        ("Retrieve", "🔍", "Find top-K chunks by cosine similarity"),
+        ("Generate", "🤖", "LLM answers grounded in retrieved context")
+    ];
+
+    protected override void OnInitialized()
+    {
+        _documents = RagDemoSvc.GetDocuments().ToList();
+        _chunks = RagDemoSvc.GetChunks().ToList();
+        _scenarios = RagDemoSvc.GetScenarios().ToList();
+        _scenarioCategories = _scenarios.Select(s => s.Category).Distinct().ToList();
+    }
+
+    private void ToggleScenario(string id)
+    {
+        _expandedScenarioId = _expandedScenarioId == id ? null : id;
+    }
+
+    private static string ScoreColor(double score) => score switch
+    {
+        >= 0.90 => "#2ecc71",
+        >= 0.75 => "#27ae60",
+        >= 0.60 => "#f39c12",
+        >= 0.45 => "#e67e22",
+        _ => "#e74c3c"
+    };
+}

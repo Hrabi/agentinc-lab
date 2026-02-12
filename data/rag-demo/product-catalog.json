@@ -1,0 +1,204 @@
+{
+  "catalog": {
+    "version": "2026-Q1",
+    "lastUpdated": "2026-01-15",
+    "currency": "EUR"
+  },
+  "categories": [
+    {
+      "id": "smart-home",
+      "name": "Smart Home Devices",
+      "products": [
+        {
+          "sku": "SH-HUB-400",
+          "name": "Contoso SmartHub 400",
+          "description": "Central smart home controller with Matter, Zigbee 3.0, Z-Wave, Thread, and Wi-Fi 6E support. Controls up to 200 devices. 5-inch touchscreen with ambient light sensor. Voice assistant built-in (works offline).",
+          "price": 249.99,
+          "weight_kg": 0.45,
+          "dimensions_cm": "15 × 15 × 4",
+          "warranty_years": 2,
+          "in_stock": true,
+          "rating": 4.7,
+          "reviews_count": 1243,
+          "features": [
+            "Matter 1.3 certified",
+            "Offline voice control",
+            "Thread border router",
+            "OTA firmware updates",
+            "Local processing (no cloud required)"
+          ],
+          "compatible_ecosystems": ["Apple HomeKit", "Google Home", "Amazon Alexa", "Samsung SmartThings"]
+        },
+        {
+          "sku": "SH-SENS-TH1",
+          "name": "Contoso TempSense Pro",
+          "description": "Precision temperature and humidity sensor with e-paper display. Battery lasts 18 months. Zigbee 3.0 connectivity. Accuracy: ±0.1°C temperature, ±1% RH humidity.",
+          "price": 39.99,
+          "weight_kg": 0.08,
+          "dimensions_cm": "6 × 6 × 1.5",
+          "warranty_years": 2,
+          "in_stock": true,
+          "rating": 4.5,
+          "reviews_count": 876,
+          "features": [
+            "E-paper display (always-on, zero power)",
+            "18-month battery life (CR2477)",
+            "Historical data logging (up to 1 year)",
+            "Calibration mode"
+          ]
+        },
+        {
+          "sku": "SH-CAM-360",
+          "name": "Contoso SecureView 360",
+          "description": "Indoor/outdoor security camera with 4K resolution, 360° pan-tilt, night vision (up to 15m), and on-device AI person/pet/vehicle detection. IP67 weatherproof. Local storage via microSD (up to 512GB) or NAS via RTSP.",
+          "price": 179.99,
+          "weight_kg": 0.52,
+          "dimensions_cm": "10 × 10 × 12",
+          "warranty_years": 2,
+          "in_stock": true,
+          "rating": 4.3,
+          "reviews_count": 654,
+          "features": [
+            "4K HDR recording",
+            "On-device AI detection (no cloud)",
+            "RTSP stream support",
+            "Two-way audio",
+            "IP67 weatherproof",
+            "PoE or Wi-Fi 6"
+          ]
+        },
+        {
+          "sku": "SH-LOCK-BT2",
+          "name": "Contoso SmartLock BT2",
+          "description": "Bluetooth + Matter smart deadbolt. Fingerprint reader (up to 50 fingerprints), PIN pad, NFC, and physical key backup. Auto-lock timer. Battery: 4× AA, lasts ~12 months.",
+          "price": 219.99,
+          "weight_kg": 1.1,
+          "dimensions_cm": "16 × 7 × 6",
+          "warranty_years": 3,
+          "in_stock": false,
+          "estimated_restock": "2026-03-01",
+          "rating": 4.6,
+          "reviews_count": 412,
+          "features": [
+            "Fingerprint unlock (< 0.3s)",
+            "Matter + Bluetooth 5.3",
+            "Tamper alarm (100dB)",
+            "Guest access codes with time limits",
+            "Activity log (last 500 events)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iot-industrial",
+      "name": "Industrial IoT Sensors",
+      "products": [
+        {
+          "sku": "IOT-VIBRA-X1",
+          "name": "Contoso VibraSense X1",
+          "description": "Industrial vibration sensor for predictive maintenance. Triaxial MEMS accelerometer with 16-bit resolution. Sampling rate up to 25.6 kHz. IP69K rated. Communicates via LoRaWAN or Modbus RTU.",
+          "price": 449.99,
+          "weight_kg": 0.22,
+          "dimensions_cm": "5 × 5 × 3",
+          "warranty_years": 3,
+          "in_stock": true,
+          "rating": 4.8,
+          "reviews_count": 189,
+          "features": [
+            "Triaxial vibration measurement",
+            "FFT analysis on-device",
+            "LoRaWAN Class A/C",
+            "IP69K (high-pressure washdown safe)",
+            "Operating temp: -40°C to +85°C",
+            "5-year battery life"
+          ],
+          "certifications": ["CE", "FCC", "ATEX Zone 2"]
+        },
+        {
+          "sku": "IOT-FLOW-M3",
+          "name": "Contoso FlowMeter M3",
+          "description": "Non-invasive ultrasonic flow meter for pipes 25mm–300mm diameter. Accuracy ±1%. Clamp-on installation requires no pipe cutting. RS485 Modbus and MQTT output.",
+          "price": 899.99,
+          "weight_kg": 1.8,
+          "dimensions_cm": "25 × 12 × 8",
+          "warranty_years": 3,
+          "in_stock": true,
+          "rating": 4.4,
+          "reviews_count": 97,
+          "features": [
+            "Non-invasive clamp-on installation",
+            "Pipes 25mm–300mm",
+            "Accuracy ±1% of reading",
+            "MQTT + Modbus RTU/TCP",
+            "Totalizer and data logging",
+            "Solar power option"
+          ],
+          "certifications": ["CE", "FCC", "MID"]
+        }
+      ]
+    },
+    {
+      "id": "consumer-audio",
+      "name": "Consumer Audio",
+      "products": [
+        {
+          "sku": "CA-BUDS-NC3",
+          "name": "Contoso SoundBuds NC3",
+          "description": "True wireless earbuds with hybrid active noise cancellation (up to -42dB). 10mm graphene drivers. Bluetooth 5.4 with LC3plus codec. Battery: 8h (buds) + 24h (case). IPX5 sweat resistant.",
+          "price": 149.99,
+          "weight_kg": 0.055,
+          "dimensions_cm": "6 × 5 × 3 (case)",
+          "warranty_years": 2,
+          "in_stock": true,
+          "rating": 4.6,
+          "reviews_count": 2341,
+          "features": [
+            "Hybrid ANC (-42dB)",
+            "Transparency mode",
+            "Spatial audio with head tracking",
+            "Multipoint (2 devices)",
+            "Wireless charging (Qi2)",
+            "Find My support"
+          ]
+        },
+        {
+          "sku": "CA-SPKR-S5",
+          "name": "Contoso SoundPillar S5",
+          "description": "Floor-standing wireless speaker with 360° sound. 2× tweeters, 2× mid-range, 1× 6.5-inch woofer. 120W RMS total. Wi-Fi 6 + Bluetooth 5.3. AirPlay 2, Chromecast built-in, Spotify Connect.",
+          "price": 599.99,
+          "weight_kg": 8.5,
+          "dimensions_cm": "22 × 22 × 85",
+          "warranty_years": 2,
+          "in_stock": true,
+          "rating": 4.8,
+          "reviews_count": 567,
+          "features": [
+            "360° omnidirectional sound",
+            "Room calibration via microphone array",
+            "Multi-room sync (up to 32 speakers)",
+            "Wired input: optical + 3.5mm + USB-C",
+            "Touch controls on top"
+          ]
+        }
+      ]
+    }
+  ],
+  "shipping": {
+    "standard": {
+      "price": 5.99,
+      "delivery_days": "3-5 business days",
+      "free_threshold": 75.00
+    },
+    "express": {
+      "price": 14.99,
+      "delivery_days": "1-2 business days"
+    },
+    "regions": ["EU", "UK", "US", "CA", "AU", "JP", "SG"]
+  },
+  "support": {
+    "email": "support@contoso-electronics.example.com",
+    "phone": "+31 20 555 0199",
+    "hours": "Mon-Fri 08:00-20:00 CET, Sat 10:00-16:00 CET",
+    "warranty_claims_url": "https://contoso-electronics.example.com/warranty"
+  }
+}

@@ -5,192 +5,91 @@
 
 ## Project Context
 
-AgenticLab is a **.NET 10 / C# 14** learning and experimentation project for building **agentic AI systems**. It focuses on **local-first LLM execution** (primarily via [Ollama](https://ollama.com/) v0.15.6) with optional hybrid cloud (Azure OpenAI) capabilities. This is a **lab**, not a product — experiments are expected.
+AgenticLab is a **.NET 10 / C# 14** learning/experimentation project for building **agentic AI systems** with **local-first LLM execution** via [Ollama](https://ollama.com/) v0.15.6 and optional hybrid cloud (Azure OpenAI). This is a **lab**, not a product — experiments are expected.
 
-### Development Environment
-
-- **OS:** Windows 11 Pro
-- **Machine:** Lenovo 83EY · Intel Core Ultra 9 275HX (24 cores) · 192 GB DDR5 · NVIDIA RTX 5090 Laptop GPU 24 GB
-- **IDE:** Visual Studio Code with C# Dev Kit + GitHub Copilot (Agent mode, Claude Opus 4.6)
-- **Runtime:** .NET 10 SDK (`net10.0` target framework)
-- **Local LLM:** Ollama v0.15.6 at `http://localhost:11434`
-- **Default model:** `llama3.2` (demo) / `qwen2.5:14b` (recommended dev model)
-- **Docker:** Docker Desktop with WSL2 backend, NVIDIA Container Toolkit for GPU passthrough
+- **Runtime:** .NET 10 SDK (`net10.0` via shared `Directory.Build.props`)
+- **Local LLM:** Ollama at `http://localhost:11434` — models: `llama3.2` (demo), `qwen2.5:14b` (dev)
+- **GPU:** NVIDIA RTX 5090 24 GB, Docker Desktop with NVIDIA Container Toolkit
 
 ---
 
-## Architecture
-
-Five projects in `src/AgenticLab.sln`, with a shared `Directory.Build.props` that enforces `net10.0`, nullable, implicit usings, and `TreatWarningsAsErrors`:
+## Architecture (8 projects)
 
 | Project | Purpose | Key Types |
 |---------|---------|-----------|
-| **AgenticLab.Core** | Core abstractions and data models (no dependencies) | `IAgent`, `IModel`, `ITool`, `IModelRouter`, `AgentRequest`, `AgentResponse`, `ModelRequest`, `ModelResponse`, `ToolInput`, `ToolResult`, `ChatMessage` |
-| **AgenticLab.Runtime** | Agent orchestration engine — registers agents by name, routes `SendAsync` calls, handles errors | `AgentRuntime` |
-| **AgenticLab.Models** | LLM adapters — HTTP-based model backends | `OllamaModel` (✅ implemented), `AzureOpenAIModel` (🚧 placeholder) |
-| **AgenticLab.Agents** | Concrete agent implementations | `SimpleQuestionAgent` |
-| **AgenticLab.Demos** | Console entry point — DI setup, interactive chat loop | `Program.cs` (top-level statements) |
+| **Core** | Abstractions + data models (zero dependencies) | `IAgent`, `IModel`, `ITool`, `IModelRouter`, request/response models |
+| **Runtime** | Agent orchestration — register by name, route `SendAsync`, error wrapping | `AgentRuntime` |
+| **Models** | LLM adapters (HTTP-based) | `OllamaModel` ✅, `AzureOpenAIModel` 🚧 |
+| **Agents** | Agent implementations + factory | `ConfigurableAgent`, `SpecialistAgents` (static factory, 8 types), `SimpleQuestionAgent` |
+| **Web** | Blazor Server app (Fluent UI v4) — dashboard, playground, compare, examples | 6 services, 8 pages |
+| **Demos** | Console entry point — DI setup, interactive chat loop | `Program.cs` (top-level statements) |
+| **AppHost** | .NET Aspire orchestration | `Program.cs` |
+| **ServiceDefaults** | Shared Aspire defaults (OpenTelemetry, health checks) | `Extensions.cs` |
 
 ### Dependency Flow
 
 ```
-Core ← Runtime (references Core)
-Core ← Models  (references Core)
-Core ← Agents  (references Core, Models)
-All  ← Demos   (references all projects)
+Core ← Runtime, Models, Agents
+Core + Runtime + Models + Agents ← Web, Demos
+Web ← AppHost (Aspire orchestration)
 ```
 
-### NuGet Packages Used
+### Key Data Flow
 
-- `Microsoft.Extensions.DependencyInjection` / `.Abstractions`
-- `Microsoft.Extensions.Logging` / `.Abstractions` / `.Console`
-- All models and agents accept dependencies via constructor injection
-
----
-
-## Key Abstractions (from source code)
-
-All abstractions live in `AgenticLab.Core.Abstractions` namespace with file-scoped namespaces.
-
-### IAgent — autonomous agent contract
-
-```csharp
-public interface IAgent
-{
-    string Name { get; }
-    string Description { get; }
-    Task<AgentResponse> ProcessAsync(AgentRequest request, CancellationToken cancellationToken = default);
-}
+```
+User → AgentRequest → ConfigurableAgent → ModelRequest → OllamaModel → POST /api/generate → Ollama
+                                                                                ↓
+User ← AgentResponse ← Agent ← ModelResponse ← JSON ← Ollama
 ```
 
-### IModel — LLM backend contract
-
-```csharp
-public interface IModel
-{
-    string Name { get; }
-    Task<ModelResponse> GenerateAsync(ModelRequest request, CancellationToken cancellationToken = default);
-}
-```
-
-### ITool — tool/action contract
-
-```csharp
-public interface ITool
-{
-    string Name { get; }
-    string Description { get; }
-    Task<ToolResult> ExecuteAsync(ToolInput input, CancellationToken cancellationToken = default);
-}
-```
-
-### IModelRouter — hybrid routing contract
-
-```csharp
-public interface IModelRouter
-{
-    IModel SelectModel(AgentRequest request);
-}
-```
-
-### Data Models (record-style classes with `required` + `init`)
-
-- **`AgentRequest`** — `Message` (required), `Metadata` (optional dict), `History` (optional `List<ChatMessage>`)
-- **`AgentResponse`** — `AgentName` (required), `Message` (required), `Success`, `Metadata`
-- **`ModelRequest`** — `Prompt` (required), `SystemPrompt`, `MaxTokens` (default 1000), `Temperature` (default 0.7)
-- **`ModelResponse`** — `Text` (required), `ModelName`, `PromptTokens`, `CompletionTokens`
-- **`ToolInput`** — `Action` (required), `Parameters` (optional dict)
-- **`ToolResult`** — `Success`, `Output`, `Error`
-- **`ChatMessage`** — `Role` (required), `Content` (required), `Name`
+In the Web app: `AgentConfig` → `AgentFactoryService.CreateAgent()` → `SpecialistAgents.Create()` → `ConfigurableAgent`. Parameter overrides (temperature, topP, etc.) flow via `AgentRequest.Metadata` dictionary.
 
 ---
 
 ## Coding Conventions
 
-### Language & Framework
+### Must-follow rules
 
-- **C# 14** / **.NET 10** — use latest features: file-scoped namespaces, primary constructors, `extension` blocks, collection expressions, etc.
-- Target framework: `net10.0` (set in `Directory.Build.props`)
-- `TreatWarningsAsErrors` is enabled globally
+- **C# 14 / .NET 10** — use latest features: file-scoped namespaces, primary constructors, collection expressions
+- **`TreatWarningsAsErrors`** is enabled globally — zero warnings allowed
+- **`CancellationToken cancellationToken = default`** on all async methods (full name, not `ct`)
+- **XML doc comments** (`<summary>`) on all public members
+- **`required` + `init`** for Core data models (immutable); Web service POCOs use `{ get; set; }` (mutable)
+- **Constructor injection** for dependencies (`IModel`, `ILogger<T>`, `HttpClient`)
+- **File-scoped namespaces**, one type per file, filename matches type name
 
-### Patterns
+### Two data model styles (intentional)
 
-- **Dependency injection** — all services registered in DI container; never use static classes for services
-- **`async/await`** for all I/O operations
-- **`CancellationToken cancellationToken = default`** parameter on all async methods (use full name `cancellationToken`, not abbreviated `ct`)
-- **Interfaces** for abstractions (`IAgent`, `IModel`, `ITool`, `IModelRouter`)
-- **`required`** keyword for mandatory properties on data objects
-- **`init`** setters for immutable data objects
-- **XML doc comments** (`<summary>`) on all public members — interfaces, classes, methods, and properties
-- Follow **Microsoft's .NET naming conventions** (PascalCase for public members, camelCase with `_` prefix for private fields)
-- **Constructor injection** for dependencies (e.g., `IModel`, `ILogger<T>`, `HttpClient`)
-- **`Microsoft.Extensions.*`** packages for DI, logging, and configuration
+| Layer | Style | Example |
+|-------|-------|---------|
+| `Core/Models/` | `required` + `init` (immutable) | `AgentRequest`, `ModelRequest`, `ModelResponse` |
+| `Web/Services/` | `{ get; set; }` (mutable POCOs) | `ModelConfig`, `AgentConfig`, `ChatSession` |
 
-### Code Style (observed in codebase)
+### Agent pattern — ConfigurableAgent (preferred)
 
-- File-scoped namespaces (no braces around namespace)
-- One type per file (class/interface name matches filename)
-- Data model classes in `Models/` subfolder, interfaces in `Abstractions/` subfolder
-- Agents receive `IModel` via constructor, build `ModelRequest` internally, return `AgentResponse`
-- Model adapters own their `HttpClient` and serialize/deserialize JSON via `System.Net.Http.Json` and `System.Text.Json`
-- `AgentRuntime` stores agents in a `Dictionary<string, IAgent>`, routes by name, catches and wraps exceptions
-- Demo uses top-level statements (`Program.cs`) with `ServiceCollection` for DI setup
-
-### Agent Implementation Pattern
-
-When creating a new agent, follow this pattern (from `SimpleQuestionAgent`):
+New agents should use the `SpecialistAgents` factory + `ConfigurableAgent`. Add a system prompt to `SpecialistAgents.SystemPrompts` and a description in `SpecialistAgents.Create()`:
 
 ```csharp
-public class MyAgent : IAgent
-{
-    private readonly IModel _model;
+// In SpecialistAgents.cs — add to SystemPrompts dictionary:
+["MySpecialist"] = """
+    You are an expert at X. Instructions: ...
+    """,
 
-    public string Name => "MyAgent";
-    public string Description => "Does something specific.";
-
-    public MyAgent(IModel model) => _model = model;
-
-    public async Task<AgentResponse> ProcessAsync(AgentRequest request, CancellationToken cancellationToken = default)
-    {
-        var modelRequest = new ModelRequest
-        {
-            Prompt = request.Message,
-            SystemPrompt = "Your specialist system prompt here.",
-            MaxTokens = 500,
-            Temperature = 0.7
-        };
-
-        var response = await _model.GenerateAsync(modelRequest, cancellationToken);
-
-        return new AgentResponse
-        {
-            AgentName = Name,
-            Message = response.Text,
-            Success = true,
-            Metadata = new Dictionary<string, object>
-            {
-                ["model"] = response.ModelName ?? "unknown",
-                ["promptTokens"] = response.PromptTokens,
-                ["completionTokens"] = response.CompletionTokens
-            }
-        };
-    }
-}
+// In Create() — add to descriptions dictionary:
+["MySpecialist"] = "Does X with precision.",
 ```
 
-### Tool Implementation Pattern
+`ConfigurableAgent` handles metadata overrides (temperature, topP, topK, repeatPenalty, numCtx, seed) automatically from `AgentRequest.Metadata`.
 
-When creating a new tool:
+### Tool pattern
 
 ```csharp
 public class MyTool : ITool
 {
     public string Name => "MyTool";
     public string Description => "Does a specific action.";
-
     public async Task<ToolResult> ExecuteAsync(ToolInput input, CancellationToken cancellationToken = default)
     {
-        // Perform action based on input.Action and input.Parameters
         return new ToolResult { Success = true, Output = "result" };
     }
 }
@@ -198,117 +97,98 @@ public class MyTool : ITool
 
 ---
 
-## Local LLM Setup (Ollama)
+## Web Application (Blazor Server + Fluent UI)
 
-The project uses [Ollama](https://github.com/ollama/ollama) (v0.15.6, 162k+ GitHub stars, MIT license) as the primary local LLM runtime.
+**Stack:** Blazor Server (.NET 10), `Microsoft.FluentUI.AspNetCore.Components` v4, Interactive Server render mode.
 
-- **REST API:** `http://localhost:11434` — endpoints `/api/generate` (completions), `/api/chat` (chat)
-- **OllamaModel adapter** uses `POST /api/generate` with `stream: false`
-- **Model naming:** `Name` returns `"ollama:{modelName}"` (e.g., `"ollama:qwen2.5:14b"`)
-- **Default demo model:** `llama3.2` (in `Program.cs`)
-- **Recommended dev models:** `qwen2.5:14b` (best all-rounder), `gemma3` (fast 4B utility), `phi4-mini` (SLM)
+### Service lifetimes (critical for DI)
 
-### Docker Infrastructure (`infra/docker/`)
+| Service | Lifetime | Why |
+|---------|----------|-----|
+| `ModelRegistryService` | **Singleton** | Shared model config registry, queries Ollama `/api/tags` |
+| `AgentFactoryService` | **Singleton** | Shared agent config registry + factory |
+| `ExampleService` | **Singleton** | Static demo data (26 examples, 10 categories) |
+| `ExportService` | **Singleton** | Stateless format conversion |
+| `ChatService` | **Scoped** | Per-circuit chat sessions + history |
+| `CompareService` | **Scoped** | Per-circuit multi-agent comparison |
 
-- `docker-compose.yml` provides: Ollama (default), vLLM (profile: `vllm`), Open WebUI (profile: `webui`)
-- Ollama init service pulls `qwen2.5:14b`, `llama3.2`, `nomic-embed-text` on first run
-- GPU passthrough via NVIDIA Container Toolkit
-- vLLM provides OpenAI-compatible API at port 8000
+### HttpClient pattern
 
-### Configuration (`infra/local/appsettings.local.json`)
-
-Uses this structure for model configuration:
+Web uses `IHttpClientFactory` with a named client `"Ollama"`, configured from `appsettings.json`:
 
 ```json
-{
-  "AgenticLab": {
-    "Runtime": { "Mode": "local", "MaxConcurrentAgents": 4 },
-    "Models": {
-      "Default": { "Provider": "ollama", "Endpoint": "http://localhost:11434", "Model": "qwen2.5:14b" },
-      "Fast":    { "Provider": "ollama", "Endpoint": "http://localhost:11434", "Model": "llama3.2" },
-      "Embedding": { "Provider": "ollama", "Model": "nomic-embed-text" }
-    },
-    "Routing": { "Default": "Default", "SimpleClassification": "Fast" }
-  }
-}
+{ "Ollama": { "Endpoint": "http://localhost:11434", "TimeoutMinutes": 5 } }
+```
+
+`OllamaModel` constructor accepts optional `HttpClient?` for this integration.
+
+### State management
+
+All state is **in-memory** — model configs, agent configs, chat sessions are seeded in constructors and stored in `List<T>`. No database. Ship with 6 model configs + 16 agent configs as defaults.
+
+### Component tree
+
+```
+Components/App.razor → Routes.razor → Layout/MainLayout.razor (FluentLayout + nav)
+Pages: Home(/), Models(/models), Agents(/agents), Playground(/playground),
+       Compare(/compare), Examples(/examples), Export(/export), Learn(/learn)
 ```
 
 ---
 
-## Documentation Structure
+## Ollama Integration
 
-Documentation lives in `docs/` as Markdown files:
+- **Generation:** `POST /api/generate` with `stream: false` — `OllamaModel.GenerateAsync()`
+- **Model listing:** `GET /api/tags` — `ModelRegistryService.GetAvailableModelsAsync()`
+- **Health check:** `GET /api/tags` — `ModelRegistryService.IsOllamaOnlineAsync()`
+- **Embeddings (planned):** `POST /api/embed` with `nomic-embed-text` — see `docs/architecture/rag-pipeline.md`
 
-| Path | Purpose |
-|------|---------|
-| `docs/tutorials/01-getting-started.md` | Setup prerequisites and first run |
-| `docs/tutorials/02-local-llm-setup.md` | Ollama, Docker, vLLM, ONNX setup with model selection guide |
-| `docs/tutorials/03-first-agent.md` | Build and wire up a simple agent |
-| `docs/architecture/local-agentic.md` | Local-only architecture patterns |
-| `docs/architecture/hybrid-agentic.md` | Hybrid local + cloud architecture |
-| `docs/architecture/diagrams/*.mmd` | Mermaid architecture diagrams |
-| `docs/local-llm-rag-specialist-agents.md` | Presentation: specialist agents, RAG, BDI case study |
-| `docs/demo-walkthrough.md` | Demo app explained — data flow, design patterns, roadmap |
-| `docs/deck.md` | Markdown slide deck |
-| `docs/notes/glossary.md` | Key terms and definitions |
-| `docs/examples/example-index.md` | Code examples index |
-| `infra/docker/README.md` | Docker Compose setup, model recommendations |
+### ModelRequest properties (all passed to Ollama `options`)
 
-### Documentation Conventions
+`Prompt` (required), `SystemPrompt`, `MaxTokens` → `num_predict`, `Temperature`, `TopP` → `top_p`, `TopK` → `top_k`, `RepeatPenalty` → `repeat_penalty`, `NumCtx` → `num_ctx`, `Seed`, `Stop`
 
-- Every doc references the **target machine specs** where relevant
-- Model tables include **sizes from official Ollama library** (not estimated)
-- Mermaid diagrams (`.mmd`) for architecture; inline Mermaid in Markdown for docs
-- Tutorials are numbered sequentially (`01-`, `02-`, `03-`)
-- Presentation deck (`local-llm-rag-specialist-agents.md`) uses "Slide N:" headers
+### Model naming convention
+
+`OllamaModel.Name` returns `"ollama:{modelName}"` (e.g., `"ollama:qwen2.5:14b"`).
 
 ---
 
-## Design Principles
+## Infrastructure
 
-1. **Local-first** — design to work fully offline without cloud services
-2. **Composable** — agents, tools, and models are independent and replaceable
-3. **Testable** — all interfaces are mockable; DI-first design
-4. **Configuration-driven** — use `appsettings.json`; avoid hardcoded values (demo excepted)
-5. **Interface-based** — agents don't know their backing model; models don't know their callers
-6. **Explicit boundaries** — agents speak `AgentRequest`/`AgentResponse`, models speak `ModelRequest`/`ModelResponse`
-7. **Documentation next to code** — every folder with code should have context explaining its purpose
+### Docker (`infra/docker/docker-compose.yml`)
 
----
+- **Default:** Ollama with GPU passthrough (port 11434)
+- **Profile `vllm`:** vLLM OpenAI-compatible API (port 8000)
+- **Profile `webui`:** Open WebUI chat interface (port 3000)
+- **Init service:** Pulls `qwen2.5:14b`, `llama3.2`, `nomic-embed-text`
 
-## Current Implementation Status
+### RAG pipeline (planned, documented)
 
-| Feature | Status |
-|---------|--------|
-| Core abstractions (IAgent, IModel, ITool, IModelRouter) | ✅ Implemented |
-| AgentRuntime (register, send, error handling) | ✅ Implemented |
-| OllamaModel adapter (HTTP, /api/generate) | ✅ Implemented |
-| SimpleQuestionAgent | ✅ Implemented |
-| Interactive console demo | ✅ Implemented |
-| Docker Compose (Ollama + vLLM + WebUI) | ✅ Implemented |
-| AzureOpenAIModel adapter | 🚧 Placeholder (throws NotImplementedException) |
-| IModelRouter implementation | 📋 Planned |
-| Tool-using agents (ITool integration) | 📋 Planned |
-| Multi-agent collaboration | 📋 Planned |
-| Conversation history/memory | 📋 Planned (AgentRequest.History defined but unused) |
-| Configuration from appsettings.json | 📋 Planned (currently hardcoded in Program.cs) |
-| RAG pipeline (embeddings + vector store) | 📋 Planned |
-| BDI mapping agent (CRM → SAP/Navision) | 📋 Planned (designed in docs) |
+Full design in `docs/architecture/rag-pipeline.md`. Demo data in `data/rag-demo/` (7 files: handbook, product catalog, C# code, API docs, financial report, FAQ). Planned stack: Qdrant vector DB (Docker) + `OllamaEmbeddingModel` + `IVectorStore` + `RagAgent`.
 
 ---
 
 ## Build & Run
 
 ```powershell
-# Build
-dotnet build src/AgenticLab.sln
-
-# Run demo (requires Ollama running with llama3.2)
-dotnet run --project src/AgenticLab.Demos
-
-# VS Code: tasks defined in .vscode/tasks.json
-#   - build (default build task)
-#   - restore
-#   - clean
-#   - run demo
+dotnet build src/AgenticLab.sln                  # Build (Ctrl+Shift+B in VS Code)
+dotnet run --project src/AgenticLab.Web          # Web app → http://localhost:5210
+dotnet run --project src/AgenticLab.Demos        # Console demo (needs Ollama + llama3.2)
 ```
+
+VS Code tasks: `build` (default), `restore`, `clean`, `run demo`, `run web`  
+VS Code launch configs: "AgenticLab Web", "AgenticLab AppHost (Aspire)", "AgenticLab Demo (Console)"
+
+---
+
+## Implementation Status
+
+| Feature | Status |
+|---------|--------|
+| Core abstractions, AgentRuntime, OllamaModel, ConfigurableAgent, SpecialistAgents (8 types) | ✅ |
+| Blazor Web app (Fluent UI): dashboard, models, agents, playground, compare, examples, export | ✅ |
+| Docker Compose (Ollama + vLLM + WebUI), .NET Aspire AppHost | ✅ |
+| Conversation history (ChatService passes History in AgentRequest) | ✅ |
+| AzureOpenAIModel adapter | 🚧 Placeholder |
+| RAG pipeline (embeddings + Qdrant + ingestion + RagAgent) | 📋 Designed |
+| IModelRouter, tool-using agents, multi-agent collaboration | 📋 Planned |
