@@ -138,7 +138,7 @@
         @* Input area — always pinned at bottom of card *@
         <div style="flex-shrink: 0; padding: 12px 16px; border-top: 1px solid var(--neutral-stroke-divider-rest, #e0e0e0); background: var(--neutral-layer-2, #fafafa);">
             <FluentStack Orientation="Orientation.Horizontal" Style="gap: 8px; align-items: flex-end;">
-                <FluentTextArea @bind-Value="_userInput" @bind-Value:event="oninput" Placeholder="Type your message..."
+                <FluentTextArea @bind-Value="_userInput" Immediate="true" Placeholder="Type your message..."
                     Rows="2" Style="flex: 1;"
                     @onkeydown="HandleKeyDown"
                     Disabled="@(_session is null || _isProcessing)" />
